@@ -1,0 +1,310 @@
+"use client";
+
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { Download, GitMerge, Pencil, Phone, Trash2, Users } from "lucide-react";
+import {
+  deleteLedger,
+  getLedger,
+  getLedgerStatement,
+  listLedgerMobileNumbers,
+  mergeLedger,
+  updateLedger,
+} from "@/lib/api";
+import type { Ledger, LedgerMobileNumber, StatementResponse } from "@/lib/types";
+import { Badge, Button, Card, ErrorBanner, Field, Money, MoneyDrCr, PageTitle, TextInput } from "@/components/ui";
+import { LedgerPicker } from "@/components/LedgerPicker";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+
+function daysAgoISO(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+export default function LedgerDetailPage() {
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const id = Number(params.id);
+
+  const [ledger, setLedger] = useState<Ledger | null>(null);
+  const [mobileNumbers, setMobileNumbers] = useState<LedgerMobileNumber[]>([]);
+  const [statement, setStatement] = useState<StatementResponse | null>(null);
+  const [from, setFrom] = useState(daysAgoISO(90));
+  const [to, setTo] = useState(daysAgoISO(0));
+  const [error, setError] = useState("");
+
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editCo, setEditCo] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+
+  const [showMerge, setShowMerge] = useState(false);
+  const [mergeTarget, setMergeTarget] = useState<Ledger | null>(null);
+  const [confirmMerge, setConfirmMerge] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  function loadLedger() {
+    getLedger(id).then((l) => {
+      setLedger(l);
+      setEditName(l.name);
+      setEditCo(l.c_o ?? "");
+      setEditAddress(l.address ?? "");
+    });
+    listLedgerMobileNumbers(id).then(setMobileNumbers);
+  }
+
+  useEffect(() => {
+    loadLedger();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  useEffect(() => {
+    getLedgerStatement(id, from, to)
+      .then(setStatement)
+      .catch((e) => setError(e instanceof Error ? e.message : "Could not load statement"));
+  }, [id, from, to]);
+
+  async function handleSaveEdit() {
+    try {
+      await updateLedger(id, { name: editName, c_o: editCo || undefined, address: editAddress || undefined });
+      setEditing(false);
+      loadLedger();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not update ledger");
+    }
+  }
+
+  async function handleMerge() {
+    if (!mergeTarget) return;
+    try {
+      await mergeLedger(id, mergeTarget.id);
+      router.push(`/ledgers/${mergeTarget.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Merge failed");
+    }
+  }
+
+  async function handleDelete() {
+    try {
+      await deleteLedger(id);
+      router.push("/ledgers");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Delete failed");
+      setConfirmDelete(false);
+    }
+  }
+
+  if (!ledger) return <p className="text-neutral-500">Loading...</p>;
+
+  return (
+    <div className="flex flex-col gap-6">
+      <ErrorBanner message={error} />
+
+      <Card>
+        {editing ? (
+          <div className="flex flex-col gap-4">
+            <Field label="Name">
+              <TextInput value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </Field>
+            <Field label="C/O">
+              <TextInput value={editCo} onChange={(e) => setEditCo(e.target.value)} />
+            </Field>
+            <Field label="Address">
+              <TextInput value={editAddress} onChange={(e) => setEditAddress(e.target.value)} />
+            </Field>
+            <div className="flex gap-3">
+              <Button onClick={handleSaveEdit}>Save</Button>
+              <Button variant="secondary" onClick={() => setEditing(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-start justify-between">
+            <div>
+              <PageTitle icon={<Users size={20} />}>{ledger.name}</PageTitle>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Badge tone="indigo">{ledger.type}</Badge>
+                {ledger.c_o && <span className="text-sm text-neutral-400">C/O {ledger.c_o}</span>}
+                {ledger.address && <span className="text-sm text-neutral-400">{ledger.address}</span>}
+              </div>
+              {mobileNumbers.length > 0 && (
+                <div className="mt-2 flex items-center gap-1.5 text-sm text-neutral-500">
+                  <Phone size={14} className="text-neutral-400" />
+                  {mobileNumbers.map((m) => m.number).join(", ")}
+                </div>
+              )}
+            </div>
+            {!ledger.is_system && (
+              <div className="flex gap-2">
+                <Button variant="secondary" onClick={() => setEditing(true)}>
+                  <Pencil size={15} />
+                  Edit
+                </Button>
+                <Button variant="secondary" onClick={() => setShowMerge(true)}>
+                  <GitMerge size={15} />
+                  Merge
+                </Button>
+                <Button variant="danger" onClick={() => setConfirmDelete(true)}>
+                  <Trash2 size={15} />
+                  Delete
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+
+      <Card>
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <div className="flex gap-4">
+            <Field label="From">
+              <TextInput type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            </Field>
+            <Field label="To">
+              <TextInput type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            </Field>
+          </div>
+          <a
+            href={`/api/export/ledger/${id}?from=${from}&to=${to}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <Button variant="secondary">
+              <Download size={16} />
+              Export PDF
+            </Button>
+          </a>
+        </div>
+
+        {statement ? (
+          <div className="flex flex-col">
+            <div className="flex justify-between rounded-lg bg-neutral-50 px-3 py-2.5 text-sm font-medium text-neutral-500">
+              <span>Opening Balance</span>
+              <MoneyDrCr value={statement.opening_balance} />
+            </div>
+            <table className="mt-1 w-full text-sm">
+              <thead>
+                <tr className="text-left text-[13px] text-neutral-400">
+                  <th className="px-3 py-2 font-medium">Date</th>
+                  <th className="px-3 py-2 font-medium">Particular</th>
+                  <th className="px-3 py-2 text-right font-medium">Debit</th>
+                  <th className="px-3 py-2 text-right font-medium">Credit</th>
+                  <th className="px-3 py-2 text-right font-medium">Balance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {statement.entries.map((row) => (
+                  <tr
+                    key={row.entry_id}
+                    className="group cursor-pointer hover:bg-neutral-50"
+                    onClick={() => router.push(`/transactions/${row.transaction_id}/edit`)}
+                  >
+                    <td className="px-3 py-2.5 text-neutral-500">{row.date}</td>
+                    <td className="px-3 py-2.5 text-neutral-900">
+                      <div className="font-medium group-hover:underline">
+                        {row.counterparty || row.type}
+                      </div>
+                      {row.narration && (
+                        <div className="mt-0.5 text-sm text-neutral-600">{row.narration}</div>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      {parseFloat(row.debit) > 0 ? <Money value={row.debit} /> : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      {parseFloat(row.credit) > 0 ? <Money value={row.credit} /> : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-medium text-neutral-900">
+                      <MoneyDrCr value={row.balance} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {statement.entries.length === 0 && (
+              <p className="mt-3 px-3 text-sm text-neutral-400">No transactions in this date range.</p>
+            )}
+            <div className="mt-3 flex justify-between px-3 text-sm text-neutral-500">
+              <span>Total Debit / Credit</span>
+              <span>
+                <Money value={statement.total_debit} /> / <Money value={statement.total_credit} />
+              </span>
+            </div>
+            <div className="mt-1 flex justify-between rounded-lg bg-neutral-50 px-3 py-2.5 text-sm font-semibold text-neutral-900">
+              <span>Closing Balance</span>
+              <MoneyDrCr value={statement.closing_balance} />
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-neutral-400">Loading statement...</p>
+        )}
+      </Card>
+
+      {showMerge && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-neutral-900/30 p-4 backdrop-blur-[2px]">
+          <div className="animate-fade-in w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                <GitMerge size={20} />
+              </span>
+              <h2 className="text-[17px] font-semibold text-neutral-900">
+                Merge &quot;{ledger.name}&quot; into...
+              </h2>
+            </div>
+            <p className="mt-3 text-sm text-neutral-500">
+              All transaction history will move to the ledger you choose below. This
+              ledger will no longer be selectable afterwards. This cannot be undone.
+            </p>
+            <div className="mt-4">
+              <LedgerPicker label="Merge into" value={mergeTarget} onChange={setMergeTarget} excludeSystem />
+            </div>
+            <div className="mt-6 flex justify-end gap-2.5 border-t border-neutral-100 pt-4">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowMerge(false);
+                  setMergeTarget(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                disabled={!mergeTarget}
+                onClick={() => setConfirmMerge(true)}
+              >
+                Merge
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={confirmMerge}
+        title="Merge these ledgers?"
+        message={`"${ledger.name}" will be permanently merged into "${mergeTarget?.name}". This cannot be undone.`}
+        confirmLabel="Yes, merge permanently"
+        danger
+        onConfirm={() => {
+          setConfirmMerge(false);
+          setShowMerge(false);
+          handleMerge();
+        }}
+        onCancel={() => setConfirmMerge(false)}
+      />
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete this ledger?"
+        message="This is only possible if the ledger has no transaction history. This cannot be undone."
+        confirmLabel="Yes, delete"
+        danger
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete(false)}
+      />
+    </div>
+  );
+}

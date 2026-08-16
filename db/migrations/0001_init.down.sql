@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS audit_log;
+DROP TABLE IF EXISTS transaction_entries;
+DROP FUNCTION IF EXISTS check_transaction_balanced();
+DROP TABLE IF EXISTS transactions;
+DROP TABLE IF EXISTS ledger_mobile_numbers;
+DROP TABLE IF EXISTS ledgers;
+DROP TYPE IF EXISTS audit_action;
+DROP TYPE IF EXISTS transaction_type;
+DROP TYPE IF EXISTS ledger_type;

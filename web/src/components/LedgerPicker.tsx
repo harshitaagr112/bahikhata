@@ -1,0 +1,255 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { MapPin, Phone, UserPlus, Search, UsersRound } from "lucide-react";
+import { addLedgerMobileNumber, createLedger, searchLedgers } from "@/lib/api";
+import { LEDGER_TYPES, type Ledger, type LedgerType } from "@/lib/types";
+import { Badge, Button, Field, Select, TextInput } from "./ui";
+
+export function LedgerPicker({
+  label,
+  value,
+  onChange,
+  excludeSystem,
+}: {
+  label: string;
+  value: Ledger | null;
+  onChange: (ledger: Ledger) => void;
+  /** Hide the system "Opening Balance" ledger — pass true for every
+   * Payment/Receipt/Discount/Income picker. It must stay reachable only
+   * from Journal (see docs/DECISIONS.md). */
+  excludeSystem?: boolean;
+}) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Ledger[]>([]);
+  const [open, setOpen] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handle = setTimeout(() => {
+      searchLedgers(query)
+        .then((ledgers) => setResults(excludeSystem ? ledgers.filter((l) => !l.is_system) : ledgers))
+        .catch(() => setResults([]));
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [query, open, excludeSystem]);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <Field label={label}>
+        <div className="relative">
+          <Search
+            size={16}
+            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400"
+          />
+          <TextInput
+            placeholder="Search by name, mobile, address..."
+            className="pl-10"
+            value={value ? value.name : query}
+            onFocus={() => setOpen(true)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setOpen(true);
+            }}
+          />
+        </div>
+      </Field>
+      {value && (
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <Badge tone="indigo">{value.type}</Badge>
+          {value.address && <span className="text-xs text-neutral-400">{value.address}</span>}
+        </div>
+      )}
+      {open && (
+        <div className="animate-fade-in absolute z-20 mt-1.5 max-h-64 w-full overflow-auto rounded-xl border border-[var(--border)] bg-white p-1.5 shadow-lg">
+          {results.map((l) => (
+            <button
+              key={l.id}
+              type="button"
+              className="block w-full rounded-lg px-3 py-2.5 text-left hover:bg-[var(--accent-soft)]"
+              onClick={() => {
+                onChange(l);
+                setQuery("");
+                setOpen(false);
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-neutral-900">{l.name}</span>
+                <Badge>{l.type}</Badge>
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-neutral-500">
+                {l.c_o && (
+                  <span className="flex items-center gap-1">
+                    <UsersRound size={11} className="text-neutral-400" />
+                    C/O {l.c_o}
+                  </span>
+                )}
+                {l.address && (
+                  <span className="flex items-center gap-1">
+                    <MapPin size={11} className="text-neutral-400" />
+                    {l.address}
+                  </span>
+                )}
+                {l.mobile_numbers && (
+                  <span className="flex items-center gap-1">
+                    <Phone size={11} className="text-neutral-400" />
+                    {l.mobile_numbers}
+                  </span>
+                )}
+              </div>
+            </button>
+          ))}
+          {results.length === 0 && (
+            <div className="px-3 py-2 text-sm text-neutral-500">No ledger found.</div>
+          )}
+          <button
+            type="button"
+            className="mt-1 flex w-full items-center gap-2 rounded-lg border-t border-neutral-100 px-3 py-2.5 text-left text-sm font-medium text-[var(--accent)] hover:bg-[var(--accent-soft)]"
+            onClick={() => {
+              setShowCreate(true);
+              setOpen(false);
+            }}
+          >
+            <UserPlus size={16} />
+            Create New Ledger
+          </button>
+        </div>
+      )}
+      {showCreate && (
+        <CreateLedgerModal
+          initialName={query}
+          onClose={() => setShowCreate(false)}
+          onCreated={(l) => {
+            onChange(l);
+            setShowCreate(false);
+            setQuery("");
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+export function CreateLedgerModal({
+  initialName,
+  onClose,
+  onCreated,
+}: {
+  initialName: string;
+  onClose: () => void;
+  onCreated: (l: Ledger) => void;
+}) {
+  const [name, setName] = useState(initialName);
+  const [type, setType] = useState<LedgerType>("customer");
+  const [mobile, setMobile] = useState("");
+  const [co, setCo] = useState("");
+  const [address, setAddress] = useState("");
+  const [openingBalance, setOpeningBalance] = useState("");
+  const [asOfDate, setAsOfDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleCreate() {
+    if (!name.trim()) {
+      setError("Name is required");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const ledger = await createLedger({
+        name: name.trim(),
+        type,
+        c_o: co || undefined,
+        address: address || undefined,
+        opening_balance: openingBalance || undefined,
+        as_of_date: openingBalance ? asOfDate : undefined,
+      });
+      if (mobile.trim()) {
+        await addLedgerMobileNumber(ledger.id, mobile.trim());
+      }
+      onCreated(ledger);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not create ledger");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/30 p-4 backdrop-blur-[2px]">
+      <div className="animate-fade-in w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">
+            <UserPlus size={20} />
+          </span>
+          <h2 className="text-[17px] font-semibold text-neutral-900">Create New Ledger</h2>
+        </div>
+        <div className="mt-5 flex flex-col gap-4">
+          <Field label="Name">
+            <TextInput autoFocus value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <Field label="Type">
+            <Select value={type} onChange={(e) => setType(e.target.value as LedgerType)}>
+              {LEDGER_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Mobile (optional)">
+            <TextInput value={mobile} onChange={(e) => setMobile(e.target.value)} />
+          </Field>
+          <Field label="C/O (optional)">
+            <TextInput value={co} onChange={(e) => setCo(e.target.value)} />
+          </Field>
+          <Field label="Address (optional)">
+            <TextInput value={address} onChange={(e) => setAddress(e.target.value)} />
+          </Field>
+          <Field
+            label="Opening Balance (optional)"
+            hint="Use a negative number if this ledger already owes the other way."
+          >
+            <TextInput
+              inputMode="decimal"
+              placeholder="e.g. 5000.00"
+              value={openingBalance}
+              onChange={(e) => setOpeningBalance(e.target.value)}
+            />
+          </Field>
+          {openingBalance && (
+            <Field label="As of Date">
+              <TextInput
+                type="date"
+                value={asOfDate}
+                onChange={(e) => setAsOfDate(e.target.value)}
+              />
+            </Field>
+          )}
+          {error && <p className="text-sm text-rose-600">{error}</p>}
+        </div>
+        <div className="mt-6 flex justify-end gap-2.5 border-t border-neutral-100 pt-4">
+          <Button variant="secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button onClick={handleCreate} disabled={saving}>
+            {saving ? "Creating..." : "Create & Select"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
