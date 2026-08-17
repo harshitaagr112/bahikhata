@@ -38,7 +38,7 @@ type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "bg-[var(--accent)] text-white shadow-sm shadow-indigo-900/10 hover:bg-indigo-700 active:bg-indigo-800",
+    "bg-[var(--accent)] text-white shadow-sm shadow-blue-900/10 hover:bg-[var(--accent-dark)] active:bg-[var(--accent-darker)]",
   secondary:
     "bg-white text-neutral-800 border border-[var(--border)] hover:bg-neutral-50 active:bg-neutral-100",
   danger: "bg-rose-600 text-white shadow-sm shadow-rose-900/10 hover:bg-rose-700 active:bg-rose-800",
@@ -149,14 +149,14 @@ export function Badge({
   tone = "neutral",
 }: {
   children: ReactNode;
-  tone?: "neutral" | "emerald" | "rose" | "amber" | "indigo";
+  tone?: "neutral" | "emerald" | "rose" | "amber" | "accent";
 }) {
   const toneClasses: Record<string, string> = {
     neutral: "bg-neutral-100 text-neutral-700",
     emerald: "bg-emerald-50 text-emerald-700",
     rose: "bg-rose-50 text-rose-700",
     amber: "bg-amber-50 text-amber-700",
-    indigo: "bg-[var(--accent-soft)] text-[var(--accent)]",
+    accent: "bg-[var(--accent-soft)] text-[var(--accent)]",
   };
   return (
     <span

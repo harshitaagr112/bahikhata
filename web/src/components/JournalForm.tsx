@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CheckCircle2, Plus, ScrollText, X, XCircle } from "lucide-react";
 import { createTransaction, updateTransaction } from "@/lib/api";
+import { setLastTransactionDate, setLastTransactionType } from "@/lib/lastTransactionType";
 import type { Ledger } from "@/lib/types";
 import { Button, Card, ErrorBanner, Field, Money, PageTitle, TextInput } from "./ui";
 import { LedgerPicker } from "./LedgerPicker";
@@ -26,14 +27,22 @@ function emptyLine(): JournalLine {
 export function JournalForm({
   transactionId,
   initial,
+  date: controlledDate,
+  onDateChange,
 }: {
   transactionId?: number;
   initial?: { date: string; narration: string; lines: JournalLine[] };
+  /** See SimpleTransactionForm's version of these two props — keeps date
+   * intact across a type switch. */
+  date?: string;
+  onDateChange?: (date: string) => void;
 }) {
   const router = useRouter();
   const isEdit = transactionId !== undefined;
 
-  const [date, setDate] = useState(initial?.date ?? todayISO());
+  const [internalDate, setInternalDate] = useState(initial?.date ?? todayISO());
+  const date = controlledDate ?? internalDate;
+  const setDate = onDateChange ?? setInternalDate;
   const [narration, setNarration] = useState(initial?.narration ?? "");
   const [lines, setLines] = useState<JournalLine[]>(initial?.lines ?? [emptyLine(), emptyLine()]);
   const [error, setError] = useState("");
@@ -93,6 +102,8 @@ export function JournalForm({
       } else {
         await createTransaction(input);
       }
+      setLastTransactionType("journal");
+      setLastTransactionDate(date);
       router.push("/daybook");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save journal");

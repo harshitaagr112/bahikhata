@@ -6,6 +6,20 @@ ERP — deliberately scoped to what this specific business actually does.
 Primary user is non-technical (comfortable with paper daybooks, not with
 software abstractions), so UX simplicity is a hard requirement everywhere.
 
+**Product/brand name is "Khata"** (Hindi for ledger/account book — what this
+app replaces) — this is what the user sees: page title, sidebar wordmark,
+login screen. "Tally" in this file's title and throughout the docs refers to
+the *old software* being migrated away from (and the repo folder name), never
+the product itself — don't reintroduce "Tally" as user-facing text. Accent
+color is **blue** (`--accent` in `globals.css`, `#2563eb`) — was indigo, then
+briefly teal, now blue; don't reintroduce either. If you add a new
+component, pull the color from the CSS vars (`var(--accent)`,
+`var(--accent-soft)`, `var(--accent-dark)`, `var(--accent-darker)`) or use
+Tailwind's `blue-*` scale, never hardcode `indigo-*`/`purple-*`/`teal-*`.
+Logo mark is `BookOpenCheck` (lucide-react) in a blue-gradient rounded
+badge — used identically in `Nav.tsx` (sidebar) and `login/page.tsx`; keep
+both in sync if the mark ever changes.
+
 **Read `docs/DECISIONS.md` before making any product, accounting, or UX
 decision.** It contains the full reasoning behind every rule below — this file
 only has the condensed, operational version. If a situation comes up that
@@ -25,9 +39,9 @@ merging, or reports.
   Never hand-write query structs — edit the `.sql` files and re-run
   `sqlc generate` from `/db`.
 - Migrations: `golang-migrate`, files in `db/migrations/`.
-- Auth: single shared username/password login, session cookie. Not yet built.
-- PDF export: reuse on-screen React report components, export via serverless
-  Puppeteer route in Next.js (not a separate Go template). Not yet built.
+- Auth: single shared username/password login, session cookie.
+- PDF export: generated natively in Go (`internal/pdf`, gofpdf) — no
+  headless browser, no Next.js export routes.
 - Testing: Go built-in `testing`, focused on the accounting engine. No
   frontend test framework chosen yet.
 - Repo: monorepo, no git initialized yet (user asked to hold off — check with
@@ -233,13 +247,116 @@ New migration files must be named `NNNN_description.up.sql` /
    create a ledger inline → post a Payment/Receipt/Journal → check
    daybook/statement/outstanding update → edit → delete → merge). No
    automated way to do this was available this session.
-2. Auth: login endpoint, session cookie middleware. Nothing is
-   authenticated yet — every endpoint above is currently open.
-3. Printable/PDF report export (decided approach: reuse the on-screen
-   statement/report page, export via a serverless Puppeteer route — not
-   started).
-4. Tally import — **blocked until the user provides the actual XLS
-   export**. Do not design or guess the format before then.
+2. ~~Auth~~ — **done.** Single shared username/password, session cookie —
+   **explicitly not JWT** (docs/DECISIONS.md item 17: one company, one
+   account, nothing JWT is actually good for applies here).
+   - `sessions` table (migration `0002_sessions`) — DB-backed, not
+     in-memory, so sessions survive a backend restart. 30-day TTL.
+   - `POST /api/login` (bcrypt-compares against `AUTH_USERNAME` /
+     `AUTH_PASSWORD_HASH` in `api/.env`), `POST /api/logout`, `GET
+     /api/me` — all three are the only unauthenticated routes; every
+     other `/api/*` route requires the session cookie
+     (`requireAuth` middleware in `internal/httpapi/server.go`).
+   - Frontend: `/login` page, `AuthGate` (`src/components/AuthGate.tsx`,
+     wraps the root layout) redirects to `/login` if `/api/me` says
+     unauthenticated — checked once per app load, not per-navigation.
+     Logout button in the sidebar.
+   - **`.env` gotcha, don't get bitten by this again**: `godotenv`
+     expands `$VAR`-style sequences even in unquoted values — a bcrypt
+     hash (`$2a$10$...`) gets silently mangled unless wrapped in single
+     quotes in `api/.env`. If you ever regenerate the hash, quote it:
+     `AUTH_PASSWORD_HASH='$2a$10$...'`.
+   - **Current `api/.env` has a temporary dev credential** —
+     `admin` / `changeme123` — clearly flagged in the file as
+     change-before-real-use. Same credential must be exported as
+     `TALLY_AUTH_USERNAME` / `TALLY_AUTH_PASSWORD` for the Tally importer
+     (`scripts/import-tally/`) to log in — it now needs a session too,
+     same as any other client.
+3. ~~Printable/PDF report export~~ — **done, generated natively in Go**
+   (superseded an earlier Puppeteer/Next.js approach — no `/print/*` or
+   `/export/*` Next.js routes anymore, no `puppeteer` dependency; the
+   frontend's `ConditionalNav`/`ConditionalMain` wrappers were removed too
+   since there's no headless-render page to hide the sidebar for):
+   - `internal/pdf` (Go package) builds the PDF bytes directly —
+     `pdf.LedgerStatement`, `pdf.Daybook`, `pdf.Outstanding`.
+   - Endpoints: `GET /api/ledgers/{id}/statement/pdf`,
+     `GET /api/daybook/pdf`, `GET /api/outstanding/pdf` — same
+     auth-gated group as every other `/api/*` route.
+   - `internal/httpapi/pdf.go` reuses `buildLedgerStatement` /
+     `buildDaybook` / `buildOutstanding` (shared with the JSON endpoints,
+     so the PDF can never disagree with the on-screen numbers) and formats
+     signed balances via its own `drCr` helper (mirrors the frontend's
+     `MoneyDrCr` — unsigned amount + "Dr"/"Cr", never a bare minus sign).
+   - **Total Debit/Credit on reports** (bundled into this same work):
+     `LedgerStatement` and `ListDaybook` (backend) return
+     `total_debit`/`total_credit` computed server-side with `big.Rat`
+     (same exact-decimal approach as running balance — never computed
+     client-side). `getDaybook`'s return shape is
+     `{ transactions, total_debit, total_credit }`, not a bare array.
+4. Tally import — **importer built and verified against real data, not
+   yet committed for real.** Lives at `scripts/import-tally/` (standalone
+   Node package, `npm install` once, `node run.mjs` for a dry run,
+   `node run.mjs --commit` to actually import — talks to the Go backend
+   over HTTP at `TALLY_API_URL`, default `http://localhost:8080`).
+   - Real files now in the repo: `debt.xls` (root) — the Tally "Sundry
+     Debtors" master list, one row per outstanding customer, 160 real
+     accounts as of the last check. `outstanding/*.xls` — detailed
+     per-ledger histories (currently just `gt.xls`); the user plans to
+     batch more in over time.
+   - `parse.mjs`: `parseMasterList` (debt.xls shape) and
+     `parseDetailedLedger` (gt.xls shape, per docs/DECISIONS.md item 20's
+     row-detection rules) + `verifyRunningBalance` (replays a detailed
+     file's entries and cross-checks against Tally's own printed running
+     balance — catches parser bugs immediately). One real bug already
+     caught and fixed this way: a header row (date-range text) was
+     misparsed as an account named "Particulars" because bare
+     `parseFloat` partially parses non-numeric strings — fixed with a
+     strict `AMOUNT_RE` regex gate before parsing any amount.
+   - `reconcile.mjs`: two-tier logic — accounts with a matching detailed
+     file get imported from that file's rows (never also a lump sum);
+     everything else gets a single lump-sum Opening Balance entry from
+     the master list. Flags (never auto-resolves) unmatched detailed
+     files and any detailed-file-vs-master-list balance discrepancy.
+   - `run.mjs`: defaults to a dry-run report (no API calls); only calls
+     the API with `--commit`, and refuses to commit while anything is
+     flagged. Commit is idempotent per account (checks
+     `findLedgerByExactName` first, skips if it already exists) so
+     re-running after adding more files to `outstanding/` is safe.
+     Cutover date for lump-sum accounts = the date the script is run
+     (confirmed with the user: "cutover date will be the date of
+     migration").
+   - **Backend change that went with this**: `POST /api/ledgers` and
+     `POST /api/transactions` now accept `?source=import`, which logs the
+     audit action as `imported` instead of `created`
+     (`auditActionFor` in `internal/httpapi/transaction.go`) — only the
+     importer should ever pass this.
+   - **Not yet done**: an actual `--commit` run against the real data.
+     Dry run is clean (zero discrepancies) but this is real financial
+     data going into the live Neon DB — confirm with the user before
+     running `--commit` for real, even though the dry run looks ready.
+     All pre-work (parsing, reconciliation, backend support, idempotency,
+     smoke-testing the commit path against throwaway data) is done — this
+     step is purely "run it and check the output," nothing left to build:
+     ```bash
+     # 1. Backend must be running (it owns the DB writes):
+     cd api && go run .                     # separate terminal, leave running
+
+     # 2. One-time only, if node_modules isn't there yet:
+     cd scripts/import-tally && npm install
+
+     # 3. Dry run — no API calls, safe to re-run any time, re-check after
+     #    adding more files to outstanding/:
+     cd scripts/import-tally && node run.mjs
+
+     # 4. Only once the dry run shows "No issues found":
+     cd scripts/import-tally && node run.mjs --commit
+     ```
+     After committing, sanity-check a few ledgers' statements
+     (`GET /api/ledgers/{id}/statement`) against their source `.xls`, and
+     confirm the Opening Balance ledger's own balance still makes sense
+     given what's actually been imported so far (it won't be exactly
+     ₹0.00 until *every* outstanding account — not just these — has been
+     imported; see item 19's reconciliation checkpoint).
 5. **Deferred by explicit user request ("leave it for now")**: make
    counterparty ledger names clickable (→ that ledger's own page) in the
    ledger statement table and in `TransactionRow` (Daybook/Dashboard).

@@ -68,7 +68,7 @@ export function LedgerPicker({
       </Field>
       {value && (
         <div className="mt-1.5 flex items-center gap-1.5">
-          <Badge tone="indigo">{value.type}</Badge>
+          <Badge tone="accent">{value.type}</Badge>
           {value.address && <span className="text-xs text-neutral-400">{value.address}</span>}
         </div>
       )}

@@ -50,7 +50,7 @@ export default function DaybookPage() {
         <PageTitle icon={<BookOpenText size={20} />} subtitle="Chronological record of every transaction">
           Daybook
         </PageTitle>
-        <a href={`/api/export/daybook?from=${from}&to=${to}`} target="_blank" rel="noreferrer">
+        <a href={`/api/daybook/pdf?from=${from}&to=${to}`} target="_blank" rel="noreferrer">
           <Button variant="secondary">
             <Download size={16} />
             Export PDF

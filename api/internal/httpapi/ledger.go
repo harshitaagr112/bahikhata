@@ -71,6 +71,7 @@ func (s *Server) createLedger(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
+	action := auditActionFor(r)
 
 	if openingBalance == nil {
 		ledger, err := s.queries.CreateLedger(ctx, params)
@@ -130,7 +131,7 @@ func (s *Server) createLedger(w http.ResponseWriter, r *http.Request) {
 		entries = append(entries, entry)
 	}
 
-	if err := writeTransactionAuditLog(ctx, qtx, db.AuditActionCreated, txn, entries, nil); err != nil {
+	if err := writeTransactionAuditLog(ctx, qtx, action, txn, entries, nil); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -139,7 +140,7 @@ func (s *Server) createLedger(w http.ResponseWriter, r *http.Request) {
 	if _, err := qtx.CreateAuditLog(ctx, db.CreateAuditLogParams{
 		EntityType:    "ledger",
 		EntityID:      ledger.ID,
-		Action:        db.AuditActionCreated,
+		Action:        action,
 		AfterSnapshot: ledgerAfter,
 	}); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

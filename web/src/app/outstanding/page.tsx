@@ -58,7 +58,7 @@ export default function OutstandingPage() {
         <PageTitle icon={<ListChecks size={20} />} subtitle="Customer and insurance-limit balances">
           Outstanding
         </PageTitle>
-        <a href="/api/export/outstanding" target="_blank" rel="noreferrer">
+        <a href="/api/outstanding/pdf" target="_blank" rel="noreferrer">
           <Button variant="secondary">
             <Download size={16} />
             Export PDF

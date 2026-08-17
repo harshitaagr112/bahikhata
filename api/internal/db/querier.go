@@ -14,14 +14,18 @@ type Querier interface {
 	AddLedgerMobileNumber(ctx context.Context, arg AddLedgerMobileNumberParams) (LedgerMobileNumber, error)
 	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) (AuditLog, error)
 	CreateLedger(ctx context.Context, arg CreateLedgerParams) (Ledger, error)
+	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
 	CreateTransactionEntry(ctx context.Context, arg CreateTransactionEntryParams) (TransactionEntry, error)
+	DeleteExpiredSessions(ctx context.Context) error
 	DeleteLedgerIfUnused(ctx context.Context, id int64) (int64, error)
+	DeleteSession(ctx context.Context, token string) error
 	DeleteTransaction(ctx context.Context, id int64) error
 	DeleteTransactionEntries(ctx context.Context, transactionID int64) error
 	GetLedger(ctx context.Context, id int64) (Ledger, error)
 	GetOpeningBalanceLedger(ctx context.Context) (Ledger, error)
 	GetTransaction(ctx context.Context, id int64) (Transaction, error)
+	GetValidSession(ctx context.Context, token string) (Session, error)
 	LedgerBalance(ctx context.Context, ledgerID int64) (LedgerBalanceRow, error)
 	LedgerBalanceBefore(ctx context.Context, arg LedgerBalanceBeforeParams) (pgtype.Numeric, error)
 	LedgerHasTransactions(ctx context.Context, ledgerID int64) (bool, error)

@@ -7,8 +7,10 @@ import (
 )
 
 type Config struct {
-	DatabaseURL string
-	Port        string
+	DatabaseURL      string
+	Port             string
+	AuthUsername     string
+	AuthPasswordHash string
 }
 
 func Load() Config {
@@ -20,7 +22,9 @@ func Load() Config {
 	}
 
 	return Config{
-		DatabaseURL: os.Getenv("DATABASE_URL"),
-		Port:        port,
+		DatabaseURL:      os.Getenv("DATABASE_URL"),
+		Port:             port,
+		AuthUsername:     os.Getenv("AUTH_USERNAME"),
+		AuthPasswordHash: os.Getenv("AUTH_PASSWORD_HASH"),
 	}
 }

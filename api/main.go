@@ -24,7 +24,7 @@ func main() {
 		log.Fatalf("failed to ping database: %v", err)
 	}
 
-	srv := httpapi.NewServer(pool)
+	srv := httpapi.NewServer(pool, cfg)
 
 	log.Printf("listening on :%s", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, srv); err != nil {

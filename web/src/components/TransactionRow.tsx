@@ -26,11 +26,11 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
   journal: ScrollText,
 };
 
-const TYPE_TONES: Record<string, "rose" | "emerald" | "amber" | "indigo" | "neutral"> = {
+const TYPE_TONES: Record<string, "rose" | "emerald" | "amber" | "accent" | "neutral"> = {
   payment: "rose",
   receipt: "emerald",
   discount: "amber",
-  income: "indigo",
+  income: "accent",
   journal: "neutral",
 };
 

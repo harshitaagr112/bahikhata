@@ -156,4 +156,21 @@ export function getOutstanding(): Promise<OutstandingResponse> {
   return request<OutstandingResponse>("/api/outstanding");
 }
 
+// -- Auth ------------------------------------------------------------
+
+export async function login(username: string, password: string): Promise<void> {
+  await request("/api/login", {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+}
+
+export async function logout(): Promise<void> {
+  await request("/api/logout", { method: "POST" });
+}
+
+export async function getMe(): Promise<{ authenticated: boolean }> {
+  return request<{ authenticated: boolean }>("/api/me");
+}
+
 export { ApiError };

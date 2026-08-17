@@ -7,7 +7,7 @@ import { deleteTransaction, getLedger, getTransaction } from "@/lib/api";
 import type { Ledger, TransactionWithEntries } from "@/lib/types";
 import { SimpleTransactionForm, type SimpleTransactionType } from "@/components/SimpleTransactionForm";
 import { JournalForm } from "@/components/JournalForm";
-import { Button, Card, ErrorBanner } from "@/components/ui";
+import { Button, ErrorBanner } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 const SIMPLE_TYPES: SimpleTransactionType[] = ["payment", "receipt", "discount", "income"];
@@ -93,23 +93,16 @@ export default function EditTransactionPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <ErrorBanner message={error} />
-      {form}
-
-      <Card className="border-rose-100 bg-rose-50/40">
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-rose-800">
+    <div className="relative flex flex-col gap-6">
+      <div className="absolute right-0 top-0">
+        <Button variant="danger" onClick={() => setConfirmDelete(true)}>
           <Trash2 size={15} />
-          Delete this transaction
-        </h2>
-        <p className="mt-1 text-sm text-rose-600/80">
-          This will remove it from the daybook and affect ledger balances. This cannot be
-          undone.
-        </p>
-        <Button variant="danger" className="mt-3" onClick={() => setConfirmDelete(true)}>
           Delete Transaction
         </Button>
-      </Card>
+      </div>
+
+      <ErrorBanner message={error} />
+      {form}
 
       <ConfirmDialog
         open={confirmDelete}

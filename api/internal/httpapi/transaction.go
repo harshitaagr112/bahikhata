@@ -151,7 +151,7 @@ func (s *Server) createTransaction(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := writeTransactionAuditLog(ctx, qtx, db.AuditActionCreated, txn, entries, nil); err != nil {
+	if err := writeTransactionAuditLog(ctx, qtx, auditActionFor(r), txn, entries, nil); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -258,6 +258,16 @@ func (s *Server) assertNoSystemLedgerOutsideJournal(ctx context.Context, req cre
 		}
 	}
 	return nil
+}
+
+// auditActionFor lets a caller mark a creation as migration-sourced (e.g.
+// the Tally importer) via ?source=import, so the audit trail distinguishes
+// imported records from normal day-to-day use (docs/DECISIONS.md item 20).
+func auditActionFor(r *http.Request) db.AuditAction {
+	if r.URL.Query().Get("source") == "import" {
+		return db.AuditActionImported
+	}
+	return db.AuditActionCreated
 }
 
 func writeTransactionAuditLog(ctx context.Context, qtx *db.Queries, action db.AuditAction, txn db.Transaction, entries []db.TransactionEntry, before interface{}) error {

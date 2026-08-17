@@ -178,6 +178,12 @@ type LedgerMobileNumber struct {
 	AddedAt  pgtype.Timestamptz `json:"added_at"`
 }
 
+type Session struct {
+	Token     string             `json:"token"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
 type Transaction struct {
 	ID        int64              `json:"id"`
 	Type      TransactionType    `json:"type"`

@@ -10,6 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { createTransaction, updateTransaction } from "@/lib/api";
+import { setLastTransactionDate, setLastTransactionType } from "@/lib/lastTransactionType";
 import type { CreateTransactionInput, Ledger } from "@/lib/types";
 import { Button, Card, ErrorBanner, Field, PageTitle, TextInput } from "./ui";
 import { LedgerPicker } from "./LedgerPicker";
@@ -75,6 +76,8 @@ export function SimpleTransactionForm({
   type,
   transactionId,
   initial,
+  date: controlledDate,
+  onDateChange,
 }: {
   type: SimpleTransactionType;
   transactionId?: number;
@@ -85,12 +88,21 @@ export function SimpleTransactionForm({
     creditLedger: Ledger;
     debitLedger: Ledger;
   };
+  /** Pass these two together to keep the date across a type switch (the
+   * new-transaction page remounts the form on switch, which would
+   * otherwise reset date back to today — unlike ledgers/amounts, date has
+   * no type-specific meaning, so there's no reason to lose it). Omit both
+   * for uncontrolled use (e.g. the edit page, which never switches type). */
+  date?: string;
+  onDateChange?: (date: string) => void;
 }) {
   const router = useRouter();
   const config = SIMPLE_TYPE_CONFIG[type];
   const isEdit = transactionId !== undefined;
 
-  const [date, setDate] = useState(initial?.date ?? todayISO());
+  const [internalDate, setInternalDate] = useState(initial?.date ?? todayISO());
+  const date = controlledDate ?? internalDate;
+  const setDate = onDateChange ?? setInternalDate;
   const [creditLedger, setCreditLedger] = useState<Ledger | null>(initial?.creditLedger ?? null);
   const [debitLedger, setDebitLedger] = useState<Ledger | null>(initial?.debitLedger ?? null);
   const [amount, setAmount] = useState(initial?.amount ?? "");
@@ -130,6 +142,8 @@ export function SimpleTransactionForm({
       } else {
         await createTransaction(input);
       }
+      setLastTransactionType(type);
+      setLastTransactionDate(date);
       router.push("/daybook");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save transaction");

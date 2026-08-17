@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Nav } from "@/components/Nav";
+import { AuthGate } from "@/components/AuthGate";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tally — Agency Ledger",
+  title: "Khata — Family Insurance Ledger",
   description: "Daybook, ledgers and outstanding management",
 };
 
@@ -25,10 +26,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="h-full flex">
-        <Nav />
-        <main className="flex-1 overflow-y-auto px-8 py-8">
-          <div className="mx-auto w-full max-w-4xl">{children}</div>
-        </main>
+        <AuthGate>
+          <Nav />
+          <main className="flex-1 overflow-y-auto px-8 py-8">
+            <div className="mx-auto w-full max-w-4xl">{children}</div>
+          </main>
+        </AuthGate>
       </body>
     </html>
   );

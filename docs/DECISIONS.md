@@ -159,11 +159,14 @@ actually does.
       historical date and a narration describing what it represents. Never
       a Payment/Receipt/Discount/Income between two non-system ledgers for
       historical data.
-    - **Reconciliation checkpoint**: the Opening Balance ledger's own
-      running balance (viewable at `/ledgers/1` or by searching "Opening
-      Balance") should match the equivalent figure from the old Tally
-      books once migration is complete — this is the intended sanity check
-      that nothing was lost or double-posted.
+    - **Reconciliation checkpoint (sharpened by item 20's Tally import
+      design)**: since every ledger's opening position — every customer's
+      imported history AND every Cash/Bank/Limit account's own lump-sum
+      opening balance — routes through this one system ledger, its net
+      balance should land at **exactly ₹0.00** once the full migration is
+      done. It's a pure clearing account by construction; if it's not
+      zero, something was missed or double-counted. Check at `/ledgers/1`
+      or by searching "Opening Balance".
     - This rule applies equally to manual entry today and to the eventual
       Tally XLS import script — the importer must never invent a
       transaction between two real ledgers to represent historical/opening
@@ -177,6 +180,69 @@ actually does.
       *target* (merging a real ledger into it would equally violate this
       invariant), on top of the existing block on it being a merge
       *source*.
+
+20. **Tally XLS import — confirmed file format and import architecture**
+    (as of the first real sample file, `gt.xls`, provided by the user):
+    - **What the source files are**: one `.xls` per *outstanding* ledger —
+      i.e. a ledger that currently has a non-zero balance in Tally, not a
+      full company export. The user will provide a folder of ~150 such
+      files (all Customer-type per item 2 of this decision), in batches —
+      3 files first for a trial run, then the rest once the import logic
+      is verified against those 3.
+    - **File shape**: single sheet, header row `Ledger: <name> | ... |
+      <date range>`, then a column header row (`Miti | Date | Particulars
+      | Particulars | Vch Type | Debit | Credit | Closing Balance` — Miti
+      is a Nepali-calendar column, always blank, ignore it). Each real
+      transaction is one row: Date, "To"/"By" (Tally's debit/credit
+      display convention — redundant with the Debit/Credit columns
+      themselves, not needed for import logic), counterparty ledger name,
+      voucher type, amount in Debit or Credit (never both), running
+      balance with a Dr/Cr suffix (matches our own `MoneyDrCr`
+      convention exactly). **Narration has no dedicated column** — when
+      present, it's a separate row immediately below the transaction row,
+      with free text sitting in the Date column's position and every
+      other column blank. Not every transaction has one. A trailing
+      3-row footer (grand totals + a "By Closing Balance" plug to make
+      the printed T-account balance) is cosmetic Tally print output, not
+      source data — exclude it from import.
+    - **No master data in these files**: no address, C/O, or mobile
+      number anywhere — only the ledger name and its transaction history.
+      If those fields matter for a given customer, they come from
+      somewhere else (manual entry), not this import.
+    - **Opening balance**: Tally omits the "Opening Balance" line
+      entirely when it's zero — if the first row is a normal transaction
+      rather than one labeled Opening Balance, the ledger's balance was
+      ₹0.00 immediately before that date.
+    - **The counterparty problem and its resolution**: these per-customer
+      files reference real operational ledgers (Cash, and several
+      Bank-type "main accounts" like "HDFC C/A AJAY" — confirmed
+      Bank-type, not sub-accounts of a single HDFC ledger) as
+      counterparties. Those main accounts get their own opening balance
+      seeded independently as a single lump sum (Tally's true final
+      balance for that account) — their detailed histories are not being
+      imported. So the importer must **never** post an imported
+      transaction against the real counterparty named in the file — doing
+      so would double-count against that account's lump-sum opening
+      balance (exactly the corruption item 19 exists to prevent, and the
+      reason a "hide this entry from the counterparty's own ledger" flag
+      was considered and rejected as unnecessary complexity — it would
+      reach the identical end state as just not creating that side of the
+      entry in the first place). Confirmed resolution: **every imported
+      row becomes a Journal transaction between the customer ledger and
+      the system Opening Balance ledger, dated at the row's real
+      historical date** — never the literal counterparty. The real
+      counterparty name and the narration text (if any) are preserved by
+      folding them into the new transaction's narration field (e.g. `"Via
+      HDFC C/A AJAY — ABDUL WADOOD GCV ICICI SE"`), so nothing is silently
+      lost, it just moves from a structured ledger link to free text,
+      which is the correct fidelity level for historical/pre-cutover data.
+    - **Audit**: imported transactions/ledgers should use the `imported`
+      audit action (already exists in the `audit_action` enum), not
+      `created` — distinguishes migration-sourced records from normal use
+      going forward.
+    - **Not yet decided / still open**: the actual importer script hasn't
+      been written — waiting on the first 3 test files before building
+      it, per the user's stated plan.
 
 ## Explicit non-requirements (deliberately out of scope for MVP)
 
@@ -202,12 +268,16 @@ actually does.
   for correctness/visibility on financial queries — every query that touches
   money is plain, readable SQL, not ORM-generated magic.
 - **Migrations:** `golang-migrate`, SQL files in `db/migrations/`.
-- **Auth:** username/password, session cookie (not yet implemented as of this
-  writing — see Current State below).
-- **PDF generation:** Option B — reuse the same React-rendered report/
-  statement page used on-screen, export to PDF via a serverless
-  Puppeteer route in Next.js, rather than a separate Go/HTML template. Not
-  yet implemented.
+- **Auth:** username/password, session cookie — implemented.
+- **PDF generation:** superseded — originally Option B (reuse the
+  React-rendered report page, export via a serverless Puppeteer route in
+  Next.js), but switched to generating PDFs natively in Go (`internal/pdf`,
+  `gofpdf`) once Puppeteer's deployment overhead (headless Chromium's
+  memory footprint, no clean fit for serverless/edge hosts) became a
+  concrete blocker while scoping deployment. The three reports are plain
+  tables, so a lower-fidelity native-Go render was an acceptable tradeoff
+  for a much simpler, lighter deploy — see CLAUDE.md's PDF export section
+  for the implementation.
 - **Testing:** Go's built-in `testing` package for backend, especially the
   accounting engine (balance math) and Journal debit=credit validation.
   Frontend testing deferred until UI stabilizes — no framework chosen yet.

@@ -125,7 +125,7 @@ export default function LedgerDetailPage() {
             <div>
               <PageTitle icon={<Users size={20} />}>{ledger.name}</PageTitle>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <Badge tone="indigo">{ledger.type}</Badge>
+                <Badge tone="accent">{ledger.type}</Badge>
                 {ledger.c_o && <span className="text-sm text-neutral-400">C/O {ledger.c_o}</span>}
                 {ledger.address && <span className="text-sm text-neutral-400">{ledger.address}</span>}
               </div>
@@ -167,7 +167,7 @@ export default function LedgerDetailPage() {
             </Field>
           </div>
           <a
-            href={`/api/export/ledger/${id}?from=${from}&to=${to}`}
+            href={`/api/ledgers/${id}/statement/pdf?from=${from}&to=${to}`}
             target="_blank"
             rel="noreferrer"
           >

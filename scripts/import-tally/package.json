@@ -1,0 +1,12 @@
+{
+  "name": "import-tally",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "import": "node run.mjs"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  }
+}
