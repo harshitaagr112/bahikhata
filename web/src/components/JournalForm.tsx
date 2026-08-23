@@ -129,7 +129,7 @@ export function JournalForm({
             {lines.map((line, i) => (
               <div
                 key={i}
-                className="flex items-end gap-2 rounded-xl border border-[var(--border)] bg-neutral-50/60 p-3"
+                className="flex flex-col gap-2 rounded-xl border border-[var(--border)] bg-neutral-50/60 p-3 sm:flex-row sm:items-end"
               >
                 <div className="flex-1">
                   <LedgerPicker
@@ -138,34 +138,36 @@ export function JournalForm({
                     onChange={(l) => updateLine(i, { ledger: l })}
                   />
                 </div>
-                <div className="w-28">
-                  <Field label="Debit">
-                    <TextInput
-                      inputMode="decimal"
-                      value={line.debit}
-                      onChange={(e) => updateLine(i, { debit: e.target.value, credit: "" })}
-                    />
-                  </Field>
+                <div className="flex gap-2">
+                  <div className="flex-1 sm:w-28 sm:flex-none">
+                    <Field label="Debit">
+                      <TextInput
+                        inputMode="decimal"
+                        value={line.debit}
+                        onChange={(e) => updateLine(i, { debit: e.target.value, credit: "" })}
+                      />
+                    </Field>
+                  </div>
+                  <div className="flex-1 sm:w-28 sm:flex-none">
+                    <Field label="Credit">
+                      <TextInput
+                        inputMode="decimal"
+                        value={line.credit}
+                        onChange={(e) => updateLine(i, { credit: e.target.value, debit: "" })}
+                      />
+                    </Field>
+                  </div>
+                  {lines.length > 2 && (
+                    <button
+                      type="button"
+                      onClick={() => removeLine(i)}
+                      className="flex h-[42px] w-9 shrink-0 items-center justify-center self-end rounded-lg text-neutral-400 hover:bg-rose-50 hover:text-rose-600"
+                      aria-label="Remove line"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
                 </div>
-                <div className="w-28">
-                  <Field label="Credit">
-                    <TextInput
-                      inputMode="decimal"
-                      value={line.credit}
-                      onChange={(e) => updateLine(i, { credit: e.target.value, debit: "" })}
-                    />
-                  </Field>
-                </div>
-                {lines.length > 2 && (
-                  <button
-                    type="button"
-                    onClick={() => removeLine(i)}
-                    className="flex h-[42px] w-9 shrink-0 items-center justify-center rounded-lg text-neutral-400 hover:bg-rose-50 hover:text-rose-600"
-                    aria-label="Remove line"
-                  >
-                    <X size={16} />
-                  </button>
-                )}
               </div>
             ))}
           </div>
@@ -175,7 +177,7 @@ export function JournalForm({
             Add Line
           </Button>
 
-          <div className="flex items-center justify-between rounded-xl bg-neutral-50 px-4 py-3 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-neutral-50 px-4 py-3 text-sm">
             <span className="tabular text-neutral-600">
               Total Debit: <Money value={totalDebit} className="font-medium text-neutral-900" /> · Total
               Credit: <Money value={totalCredit} className="font-medium text-neutral-900" />

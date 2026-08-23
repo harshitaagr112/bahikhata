@@ -141,10 +141,10 @@ func (q *Queries) LedgerBalanceBefore(ctx context.Context, arg LedgerBalanceBefo
 const ledgerStatement = `-- name: LedgerStatement :many
 SELECT te.id AS entry_id, t.id AS transaction_id, t.txn_date, t.type, t.narration,
     te.debit, te.credit,
-    (SELECT string_agg(l2.name, ', ' ORDER BY l2.name)
+    (SELECT COALESCE(json_agg(json_build_object('ledger_id', l2.id, 'name', l2.name) ORDER BY l2.name), '[]')
         FROM transaction_entries te2
         JOIN ledgers l2 ON l2.id = te2.ledger_id
-        WHERE te2.transaction_id = t.id AND te2.ledger_id <> te.ledger_id) AS counterparty
+        WHERE te2.transaction_id = t.id AND te2.ledger_id <> te.ledger_id)::text AS counterparties
 FROM transaction_entries te
 JOIN transactions t ON t.id = te.transaction_id
 WHERE te.ledger_id = $1 AND t.txn_date BETWEEN $2 AND $3
@@ -158,14 +158,14 @@ type LedgerStatementParams struct {
 }
 
 type LedgerStatementRow struct {
-	EntryID       int64           `json:"entry_id"`
-	TransactionID int64           `json:"transaction_id"`
-	TxnDate       pgtype.Date     `json:"txn_date"`
-	Type          TransactionType `json:"type"`
-	Narration     *string         `json:"narration"`
-	Debit         pgtype.Numeric  `json:"debit"`
-	Credit        pgtype.Numeric  `json:"credit"`
-	Counterparty  []byte          `json:"counterparty"`
+	EntryID        int64           `json:"entry_id"`
+	TransactionID  int64           `json:"transaction_id"`
+	TxnDate        pgtype.Date     `json:"txn_date"`
+	Type           TransactionType `json:"type"`
+	Narration      *string         `json:"narration"`
+	Debit          pgtype.Numeric  `json:"debit"`
+	Credit         pgtype.Numeric  `json:"credit"`
+	Counterparties string          `json:"counterparties"`
 }
 
 func (q *Queries) LedgerStatement(ctx context.Context, arg LedgerStatementParams) ([]LedgerStatementRow, error) {
@@ -185,7 +185,7 @@ func (q *Queries) LedgerStatement(ctx context.Context, arg LedgerStatementParams
 			&i.Narration,
 			&i.Debit,
 			&i.Credit,
-			&i.Counterparty,
+			&i.Counterparties,
 		); err != nil {
 			return nil, err
 		}
@@ -300,6 +300,50 @@ func (q *Queries) ListTransactionEntriesWithLedgerNames(ctx context.Context, tra
 	var items []ListTransactionEntriesWithLedgerNamesRow
 	for rows.Next() {
 		var i ListTransactionEntriesWithLedgerNamesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TransactionID,
+			&i.LedgerID,
+			&i.Debit,
+			&i.Credit,
+			&i.LedgerName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTransactionEntriesWithLedgerNamesForTransactions = `-- name: ListTransactionEntriesWithLedgerNamesForTransactions :many
+SELECT te.id, te.transaction_id, te.ledger_id, te.debit, te.credit, l.name AS ledger_name
+FROM transaction_entries te
+JOIN ledgers l ON l.id = te.ledger_id
+WHERE te.transaction_id = ANY($1::bigint[])
+ORDER BY te.transaction_id, te.id
+`
+
+type ListTransactionEntriesWithLedgerNamesForTransactionsRow struct {
+	ID            int64          `json:"id"`
+	TransactionID int64          `json:"transaction_id"`
+	LedgerID      int64          `json:"ledger_id"`
+	Debit         pgtype.Numeric `json:"debit"`
+	Credit        pgtype.Numeric `json:"credit"`
+	LedgerName    string         `json:"ledger_name"`
+}
+
+func (q *Queries) ListTransactionEntriesWithLedgerNamesForTransactions(ctx context.Context, dollar_1 []int64) ([]ListTransactionEntriesWithLedgerNamesForTransactionsRow, error) {
+	rows, err := q.db.Query(ctx, listTransactionEntriesWithLedgerNamesForTransactions, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTransactionEntriesWithLedgerNamesForTransactionsRow
+	for rows.Next() {
+		var i ListTransactionEntriesWithLedgerNamesForTransactionsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.TransactionID,

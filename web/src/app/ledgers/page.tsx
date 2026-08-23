@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ChevronRight, Search, UserPlus, Users } from "lucide-react";
 import { searchLedgers } from "@/lib/api";
-import type { Ledger } from "@/lib/types";
+import type { Ledger, LedgerType } from "@/lib/types";
 import { Badge, Button, Card, EmptyState, ErrorBanner, PageTitle, TextInput } from "@/components/ui";
 import { CreateLedgerModal } from "@/components/LedgerPicker";
 
@@ -16,19 +16,26 @@ export default function LedgersPage() {
   const [error, setError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
 
+  // With no search query, default to Cash/Bank ledgers only — the handful
+  // of operational accounts you want visible at a glance. The moment the
+  // user types anything, search opens up to every ledger type (including
+  // the potentially hundreds of Customer ledgers).
+  const defaultTypes: LedgerType[] = ["cash", "bank"];
+
   useEffect(() => {
     const handle = setTimeout(() => {
-      searchLedgers(query)
+      searchLedgers(query, query ? undefined : defaultTypes)
         .then(setResults)
         .catch((e) => setError(e instanceof Error ? e.message : "Search failed"));
     }, 250);
     return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <PageTitle icon={<Users size={20} />} subtitle="Search customers, banks, limits and more">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <PageTitle icon={<Users size={20} />} subtitle="Cash & Bank shown by default — search for customers and more">
           Ledgers
         </PageTitle>
         <Button onClick={() => setShowCreate(true)}>
@@ -53,8 +60,12 @@ export default function LedgersPage() {
         {results.length === 0 ? (
           <EmptyState
             icon={<Search size={20} />}
-            title={query ? "No ledger found" : "Start typing to search"}
-            description={query ? undefined : "Or create a new ledger with the button above."}
+            title={query ? "No ledger found" : "No Cash/Bank ledgers yet"}
+            description={
+              query
+                ? undefined
+                : "Search above for customers and other ledgers, or create a new one with the button above."
+            }
           />
         ) : (
           <div className="flex flex-col divide-y divide-neutral-100">

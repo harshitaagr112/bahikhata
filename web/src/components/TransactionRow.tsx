@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -34,15 +37,48 @@ const TYPE_TONES: Record<string, "rose" | "emerald" | "amber" | "accent" | "neut
   journal: "neutral",
 };
 
-function describeFlow(entries: DaybookEntry[]): { flow: string; amount: number } {
+function amountFor(entries: DaybookEntry[]): number {
+  return entries
+    .filter((e) => parseFloat(e.debit) > 0)
+    .reduce((sum, e) => sum + parseFloat(e.debit), 0);
+}
+
+/** Stops propagation so clicking a ledger name navigates to that ledger
+ * instead of also triggering the row's own "go to transaction" click. */
+function LedgerLink({ entry }: { entry: DaybookEntry }) {
+  return (
+    <Link
+      href={`/ledgers/${entry.ledger_id}`}
+      onClick={(e) => e.stopPropagation()}
+      className="hover:text-[var(--accent)] hover:underline"
+    >
+      {entry.ledger_name}
+    </Link>
+  );
+}
+
+function Flow({ entries }: { entries: DaybookEntry[] }) {
+  if (entries.length === 0) return <>—</>;
   const debitEntries = entries.filter((e) => parseFloat(e.debit) > 0);
   const creditEntries = entries.filter((e) => parseFloat(e.credit) > 0);
-  const amount = debitEntries.reduce((sum, e) => sum + parseFloat(e.debit), 0);
 
   if (debitEntries.length === 1 && creditEntries.length === 1) {
-    return { flow: `${creditEntries[0].ledger_name} → ${debitEntries[0].ledger_name}`, amount };
+    return (
+      <>
+        <LedgerLink entry={creditEntries[0]} /> → <LedgerLink entry={debitEntries[0]} />
+      </>
+    );
   }
-  return { flow: entries.map((e) => e.ledger_name).join(", "), amount };
+  return (
+    <>
+      {entries.map((e, i) => (
+        <span key={`${e.ledger_id}-${i}`}>
+          {i > 0 && ", "}
+          <LedgerLink entry={e} />
+        </span>
+      ))}
+    </>
+  );
 }
 
 export function TransactionRow({
@@ -50,34 +86,46 @@ export function TransactionRow({
 }: {
   txn: (Transaction & { entries?: DaybookEntry[] }) | DaybookRow;
 }) {
+  const router = useRouter();
   const entries = "entries" in txn && txn.entries ? txn.entries : [];
-  const { flow, amount } = describeFlow(entries);
+  const amount = amountFor(entries);
   const Icon = TYPE_ICONS[txn.type];
 
+  function goToTransaction() {
+    router.push(`/transactions/${txn.id}/edit`);
+  }
+
   return (
-    <Link
-      href={`/transactions/${txn.id}/edit`}
-      className="group flex items-center justify-between gap-4 rounded-xl px-2 py-3 transition-colors hover:bg-neutral-50"
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={goToTransaction}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") goToTransaction();
+      }}
+      className="group flex flex-wrap cursor-pointer items-center justify-between gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-neutral-50"
     >
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         <span
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-500 group-hover:bg-white`}
         >
           {Icon && <Icon size={16} />}
         </span>
-        <div>
-          <div className="flex items-center gap-2">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
             <Badge tone={TYPE_TONES[txn.type] ?? "neutral"}>
               {TYPE_LABELS[txn.type] ?? txn.type}
             </Badge>
-            <span className="text-sm font-medium text-neutral-900">{flow || "—"}</span>
+            <span className="text-sm font-medium text-neutral-900">
+              <Flow entries={entries} />
+            </span>
           </div>
           {txn.narration && (
             <div className="mt-0.5 text-sm text-neutral-600">{txn.narration}</div>
           )}
         </div>
       </div>
-      <Money value={amount} className="text-sm font-semibold text-neutral-900" />
-    </Link>
+      <Money value={amount} className="shrink-0 text-sm font-semibold text-neutral-900" />
+    </div>
   );
 }

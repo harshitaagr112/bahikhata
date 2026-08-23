@@ -1,17 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   Banknote,
+  ChevronRight,
   LayoutDashboard,
   Receipt,
+  ShieldCheck,
   TrendingDown,
   TrendingUp,
   Wallet,
 } from "lucide-react";
-import { getDaybook, getLedgerBalance, getOutstanding, searchLedgers } from "@/lib/api";
-import type { DaybookRow, Ledger } from "@/lib/types";
-import { Card, EmptyState, ErrorBanner, Money, MoneyDrCr, PageTitle } from "@/components/ui";
+import {
+  getDaybook,
+  getInsuranceRenewals,
+  getLedgerBalance,
+  getOutstanding,
+  searchLedgers,
+} from "@/lib/api";
+import type { DaybookRow, InsurancePolicy, Ledger } from "@/lib/types";
+import { Badge, Card, EmptyState, ErrorBanner, Money, MoneyDrCr, PageTitle } from "@/components/ui";
 import { TransactionRow } from "@/components/TransactionRow";
 
 interface CashBankBalance {
@@ -21,6 +30,17 @@ interface CashBankBalance {
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function daysFromNowISO(days: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function expiryTone(expiryDate: string): "rose" | "amber" {
+  const days = Math.floor((new Date(expiryDate).getTime() - Date.now()) / 86400000);
+  return days < 0 ? "rose" : "amber";
 }
 
 function StatCard({
@@ -67,17 +87,26 @@ export default function DashboardPage() {
   const [receivablesTotal, setReceivablesTotal] = useState(0);
   const [payablesTotal, setPayablesTotal] = useState(0);
   const [todayTxns, setTodayTxns] = useState<DaybookRow[]>([]);
+  const [renewals, setRenewals] = useState<InsurancePolicy[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const [ledgers, outstanding, daybook] = await Promise.all([
+        const [ledgers, outstanding, daybook, dueRenewals] = await Promise.all([
           searchLedgers(""),
           getOutstanding(),
           getDaybook(todayISO(), todayISO()),
+          // Overdue policies have no lower bound, so start well in the past
+          // rather than trying to guess how far back unrenewed policies go.
+          getInsuranceRenewals("1900-01-01", daysFromNowISO(30)),
         ]);
+        setRenewals(
+          dueRenewals
+            .slice()
+            .sort((a, b) => (a.expiry_date < b.expiry_date ? -1 : 1))
+        );
 
         const cashBankLedgers = ledgers.filter(
           (l) => l.type === "cash" || l.type === "bank"
@@ -151,6 +180,54 @@ export default function DashboardPage() {
           tone="rose"
         />
       </div>
+
+      <Card>
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-[15px] font-semibold text-neutral-900">
+            <ShieldCheck size={17} className="text-neutral-400" />
+            Renewals Due
+          </div>
+          <Link
+            href="/insurance/renewals"
+            className="flex items-center gap-0.5 text-sm font-medium text-[var(--accent)] hover:underline"
+          >
+            View all
+            <ChevronRight size={14} />
+          </Link>
+        </div>
+        {renewals.length === 0 ? (
+          <EmptyState
+            icon={<ShieldCheck size={22} />}
+            title="Nothing due in the next 30 days"
+          />
+        ) : (
+          <div className="mt-2 flex flex-col divide-y divide-neutral-100">
+            {renewals.slice(0, 8).map((p) => (
+              <Link
+                key={p.id}
+                href={`/insurance/${p.id}/edit`}
+                className="group flex items-center justify-between gap-3 rounded-lg px-2 py-2.5 hover:bg-neutral-50"
+              >
+                <div>
+                  <div className="text-sm font-medium text-neutral-900">{p.insured_name}</div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-neutral-400">
+                    {p.registration_no && <span>{p.registration_no}</span>}
+                    {p.mobile_no && <span>{p.mobile_no}</span>}
+                  </div>
+                </div>
+                <Badge tone={expiryTone(p.expiry_date)}>
+                  {expiryTone(p.expiry_date) === "rose" ? "Overdue since" : "Expires"} {p.expiry_date}
+                </Badge>
+              </Link>
+            ))}
+            {renewals.length > 8 && (
+              <div className="px-2 py-2.5 text-sm text-neutral-400">
+                +{renewals.length - 8} more due — see the full report.
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
 
       <Card>
         <div className="mb-1 flex items-center gap-2 text-[15px] font-semibold text-neutral-900">

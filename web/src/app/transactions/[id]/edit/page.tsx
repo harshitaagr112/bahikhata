@@ -93,8 +93,8 @@ export default function EditTransactionPage() {
   }
 
   return (
-    <div className="relative flex flex-col gap-6">
-      <div className="absolute right-0 top-0">
+    <div className="flex flex-col gap-6">
+      <div className="flex justify-end">
         <Button variant="danger" onClick={() => setConfirmDelete(true)}>
           <Trash2 size={15} />
           Delete Transaction

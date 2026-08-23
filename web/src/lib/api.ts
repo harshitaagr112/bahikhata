@@ -2,6 +2,8 @@ import type {
   BalanceResponse,
   CreateTransactionInput,
   DaybookResponse,
+  InsurancePolicy,
+  InsurancePolicyInput,
   Ledger,
   LedgerMobileNumber,
   LedgerType,
@@ -33,9 +35,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 // -- Ledgers -----------------------------------------------------------
 
-export function searchLedgers(q: string): Promise<Ledger[]> {
+export function searchLedgers(q: string, types?: LedgerType[]): Promise<Ledger[]> {
   const params = new URLSearchParams();
   if (q) params.set("q", q);
+  if (types && types.length > 0) params.set("type", types.join(","));
   return request<Ledger[]>(`/api/ledgers?${params.toString()}`);
 }
 
@@ -61,7 +64,7 @@ export function getLedger(id: number): Promise<Ledger> {
 
 export function updateLedger(
   id: number,
-  input: { name: string; c_o?: string; address?: string }
+  input: { name: string; type: LedgerType; c_o?: string; address?: string }
 ): Promise<Ledger> {
   return request<Ledger>(`/api/ledgers/${id}`, {
     method: "PUT",
@@ -154,6 +157,73 @@ export function getDaybook(from?: string, to?: string): Promise<DaybookResponse>
 
 export function getOutstanding(): Promise<OutstandingResponse> {
   return request<OutstandingResponse>("/api/outstanding");
+}
+
+// -- Insurance -----------------------------------------------------------
+
+export function searchInsurancePolicies(q: string): Promise<InsurancePolicy[]> {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  return request<InsurancePolicy[]>(`/api/insurance-policies?${params.toString()}`);
+}
+
+export function createInsurancePolicy(
+  input: InsurancePolicyInput
+): Promise<InsurancePolicy> {
+  return request<InsurancePolicy>("/api/insurance-policies", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function getInsurancePolicy(id: number): Promise<InsurancePolicy> {
+  return request<InsurancePolicy>(`/api/insurance-policies/${id}`);
+}
+
+export function updateInsurancePolicy(
+  id: number,
+  input: InsurancePolicyInput
+): Promise<InsurancePolicy> {
+  return request<InsurancePolicy>(`/api/insurance-policies/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteInsurancePolicy(id: number): Promise<{ deleted: boolean }> {
+  return request(`/api/insurance-policies/${id}`, { method: "DELETE" });
+}
+
+export function listInsuranceCompanies(): Promise<string[]> {
+  return request<string[]>("/api/insurance-policies/companies");
+}
+
+export function listInsuranceVehicleCategories(): Promise<string[]> {
+  return request<string[]>("/api/insurance-policies/vehicle-categories");
+}
+
+export function getInsuranceRenewals(
+  from?: string,
+  to?: string,
+  company?: string
+): Promise<InsurancePolicy[]> {
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  if (company) params.set("company", company);
+  return request<InsurancePolicy[]>(`/api/insurance/renewals?${params.toString()}`);
+}
+
+export function getInsuranceCommissionPayouts(
+  from?: string,
+  to?: string,
+  company?: string
+): Promise<InsurancePolicy[]> {
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  if (company) params.set("company", company);
+  return request<InsurancePolicy[]>(`/api/insurance/commission-payouts?${params.toString()}`);
 }
 
 // -- Auth ------------------------------------------------------------

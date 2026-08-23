@@ -19,11 +19,12 @@ WHERE l.merged_into_id IS NULL AND (
     l.c_o ILIKE '%' || $1 || '%' OR
     m.number ILIKE '%' || $1 || '%'
 )
+AND (sqlc.narg('types')::text[] IS NULL OR l.type::text = ANY(sqlc.narg('types')::text[]))
 ORDER BY l.name
 LIMIT $2 OFFSET $3;
 
 -- name: UpdateLedger :one
-UPDATE ledgers SET name = $2, c_o = $3, address = $4, updated_at = now()
+UPDATE ledgers SET name = $2, c_o = $3, address = $4, type = $5, updated_at = now()
 WHERE id = $1 RETURNING *;
 
 -- name: LedgerHasTransactions :one
@@ -38,6 +39,12 @@ INSERT INTO ledger_mobile_numbers (ledger_id, number) VALUES ($1, $2) RETURNING 
 
 -- name: ListLedgerMobileNumbers :many
 SELECT * FROM ledger_mobile_numbers WHERE ledger_id = $1 ORDER BY added_at DESC;
+
+-- name: LatestMobileNumbersForLedgers :many
+SELECT DISTINCT ON (ledger_id) ledger_id, number
+FROM ledger_mobile_numbers
+WHERE ledger_id = ANY($1::bigint[])
+ORDER BY ledger_id, added_at DESC;
 
 -- name: MergeLedger :exec
 UPDATE ledgers SET merged_into_id = $2, updated_at = now() WHERE id = $1;

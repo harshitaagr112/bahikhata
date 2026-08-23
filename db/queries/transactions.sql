@@ -25,6 +25,13 @@ JOIN ledgers l ON l.id = te.ledger_id
 WHERE te.transaction_id = $1
 ORDER BY te.id;
 
+-- name: ListTransactionEntriesWithLedgerNamesForTransactions :many
+SELECT te.id, te.transaction_id, te.ledger_id, te.debit, te.credit, l.name AS ledger_name
+FROM transaction_entries te
+JOIN ledgers l ON l.id = te.ledger_id
+WHERE te.transaction_id = ANY($1::bigint[])
+ORDER BY te.transaction_id, te.id;
+
 -- name: DeleteTransactionEntries :exec
 DELETE FROM transaction_entries WHERE transaction_id = $1;
 
@@ -38,10 +45,10 @@ LIMIT $3 OFFSET $4;
 -- name: LedgerStatement :many
 SELECT te.id AS entry_id, t.id AS transaction_id, t.txn_date, t.type, t.narration,
     te.debit, te.credit,
-    (SELECT string_agg(l2.name, ', ' ORDER BY l2.name)
+    (SELECT COALESCE(json_agg(json_build_object('ledger_id', l2.id, 'name', l2.name) ORDER BY l2.name), '[]')
         FROM transaction_entries te2
         JOIN ledgers l2 ON l2.id = te2.ledger_id
-        WHERE te2.transaction_id = t.id AND te2.ledger_id <> te.ledger_id) AS counterparty
+        WHERE te2.transaction_id = t.id AND te2.ledger_id <> te.ledger_id)::text AS counterparties
 FROM transaction_entries te
 JOIN transactions t ON t.id = te.transaction_id
 WHERE te.ledger_id = $1 AND t.txn_date BETWEEN $2 AND $3

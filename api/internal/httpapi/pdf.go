@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -91,7 +92,7 @@ func (s *Server) ledgerStatementPDF(w http.ResponseWriter, r *http.Request) {
 
 	rows := make([]pdf.StatementRow, 0, len(result.Entries))
 	for _, e := range result.Entries {
-		particular := e.Counterparty
+		particular := counterpartyNames(e.Counterparties)
 		if particular == "" {
 			particular = e.Type
 		}
@@ -239,4 +240,192 @@ func (s *Server) outstandingPDF(w http.ResponseWriter, r *http.Request) {
 		PayablesTotal:    payablesTotal,
 	})
 	writePDF(w, "outstanding.pdf", body, err)
+}
+
+func (s *Server) insuranceRenewalsPDF(w http.ResponseWriter, r *http.Request) {
+	fromParam := r.URL.Query().Get("from")
+	toParam := r.URL.Query().Get("to")
+
+	now := time.Now()
+	from, err := parseDateParam(r, "from", time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid 'from' date")
+		return
+	}
+	to, err := parseDateParam(r, "to", from.AddDate(0, 1, -1))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid 'to' date")
+		return
+	}
+
+	policies, err := s.buildInsuranceRenewals(r.Context(), from, to, insuranceRenewalCompanyParam(r))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	mobileByLedger, err := s.latestMobileNumbersByLedger(r.Context(), policies)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	companies := make([]pdf.InsuranceRenewalCompany, 0)
+	var currentCompany, currentCategory string
+	var company *pdf.InsuranceRenewalCompany
+	var category *pdf.InsuranceRenewalCategory
+	for _, p := range policies {
+		category_ := ""
+		if p.VehicleCategory != nil {
+			category_ = *p.VehicleCategory
+		}
+		if company == nil || p.Company != currentCompany {
+			companies = append(companies, pdf.InsuranceRenewalCompany{Company: p.Company})
+			company = &companies[len(companies)-1]
+			currentCompany = p.Company
+			category = nil
+		}
+		if category == nil || category_ != currentCategory {
+			company.Categories = append(company.Categories, pdf.InsuranceRenewalCategory{Category: category_})
+			category = &company.Categories[len(company.Categories)-1]
+			currentCategory = category_
+		}
+		location := ""
+		if p.Location != nil {
+			location = *p.Location
+		}
+		registrationNo := ""
+		if p.RegistrationNo != nil {
+			registrationNo = *p.RegistrationNo
+		}
+		// Name, Location, Mobile No., Registration No., Expiry Date, and
+		// Total Prem are the compulsory fields on the printed renewal
+		// reminder. Mobile No. falls back to the linked customer ledger's
+		// own mobile number when the policy itself has none on file.
+		mobileNo := ""
+		if p.MobileNo != nil {
+			mobileNo = *p.MobileNo
+		} else if p.LedgerID != nil {
+			mobileNo = mobileByLedger[*p.LedgerID]
+		}
+		expiryDate, _ := time.Parse("2006-01-02", p.ExpiryDate)
+		category.Rows = append(category.Rows, pdf.InsuranceRenewalRow{
+			InsuredName:    p.InsuredName,
+			Location:       location,
+			MobileNo:       mobileNo,
+			RegistrationNo: registrationNo,
+			ExpiryDate:     expiryDate.Format("2 Jan 2006"),
+			TotalPremium:   p.TotalPremium,
+		})
+	}
+
+	body, err := pdf.InsuranceRenewals(pdf.InsuranceRenewalsInput{
+		Period:     periodLabel(fromParam, toParam),
+		Companies:  companies,
+		TotalCount: len(policies),
+	})
+	writePDF(w, "insurance-renewals.pdf", body, err)
+}
+
+// latestMobileNumbersByLedger batch-fetches the most recent mobile number
+// on file for every distinct linked ledger among the given policies, in one
+// query — never one query per row (see the daybook N+1 fix earlier in this
+// codebase's history for why that matters).
+func (s *Server) latestMobileNumbersByLedger(ctx context.Context, policies []insurancePolicyResponse) (map[int64]string, error) {
+	seen := make(map[int64]bool)
+	ledgerIDs := make([]int64, 0)
+	for _, p := range policies {
+		if p.LedgerID != nil && !seen[*p.LedgerID] {
+			seen[*p.LedgerID] = true
+			ledgerIDs = append(ledgerIDs, *p.LedgerID)
+		}
+	}
+	result := make(map[int64]string, len(ledgerIDs))
+	if len(ledgerIDs) == 0 {
+		return result, nil
+	}
+	rows, err := s.queries.LatestMobileNumbersForLedgers(ctx, ledgerIDs)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		result[row.LedgerID] = row.Number
+	}
+	return result, nil
+}
+
+func (s *Server) insuranceCommissionPayoutsPDF(w http.ResponseWriter, r *http.Request) {
+	fromParam := r.URL.Query().Get("from")
+	toParam := r.URL.Query().Get("to")
+
+	now := time.Now()
+	from, err := parseDateParam(r, "from", time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid 'from' date")
+		return
+	}
+	to, err := parseDateParam(r, "to", from.AddDate(0, 1, -1))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid 'to' date")
+		return
+	}
+
+	policies, err := s.buildInsuranceCommissionPayouts(r.Context(), from, to, insuranceRenewalCompanyParam(r))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	companies := make([]pdf.CommissionPayoutCompany, 0)
+	var currentCompany string
+	var company *pdf.CommissionPayoutCompany
+	totalPayout := new(big.Rat)
+	for _, p := range policies {
+		if company == nil || p.Company != currentCompany {
+			companies = append(companies, pdf.CommissionPayoutCompany{Company: p.Company})
+			company = &companies[len(companies)-1]
+			currentCompany = p.Company
+		}
+		registrationNo := ""
+		if p.RegistrationNo != nil {
+			registrationNo = *p.RegistrationNo
+		}
+		policyNo := ""
+		if p.PolicyNo != nil {
+			policyNo = *p.PolicyNo
+		}
+		premiumBasis := "-"
+		if p.CommissionBasisAmount != nil {
+			premiumBasis = *p.CommissionBasisAmount
+		}
+		percentage := "-"
+		if p.CommissionPct != nil {
+			percentage = *p.CommissionPct + "%"
+		}
+		commissionAmt := "-"
+		if p.CommissionAmount != nil {
+			commissionAmt = *p.CommissionAmount
+			if amt, ok := new(big.Rat).SetString(*p.CommissionAmount); ok {
+				totalPayout.Add(totalPayout, amt)
+			}
+		}
+		issueDate, _ := time.Parse("2006-01-02", p.IssueDate)
+		company.Rows = append(company.Rows, pdf.CommissionPayoutRow{
+			InsuredName:    p.InsuredName,
+			RegistrationNo: registrationNo,
+			PremiumBasis:   premiumBasis,
+			Percentage:     percentage,
+			IssueDate:      issueDate.Format("2 Jan 2006"),
+			PolicyNo:       policyNo,
+			CommissionAmt:  commissionAmt,
+		})
+	}
+
+	body, err := pdf.CommissionPayouts(pdf.CommissionPayoutsInput{
+		Period:      periodLabel(fromParam, toParam),
+		Companies:   companies,
+		TotalCount:  len(policies),
+		TotalPayout: totalPayout.FloatString(2),
+	})
+	writePDF(w, "insurance-commission-payouts.pdf", body, err)
 }

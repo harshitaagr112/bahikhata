@@ -30,6 +30,7 @@ func (s *Server) getLedger(w http.ResponseWriter, r *http.Request) {
 
 type updateLedgerRequest struct {
 	Name    string `json:"name"`
+	Type    string `json:"type"`
 	CO      string `json:"c_o"`
 	Address string `json:"address"`
 }
@@ -45,12 +46,23 @@ func (s *Server) updateLedger(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.Name == "" {
-		writeError(w, http.StatusBadRequest, "name is required")
+	if req.Name == "" || req.Type == "" {
+		writeError(w, http.StatusBadRequest, "name and type are required")
 		return
 	}
 
-	params := db.UpdateLedgerParams{ID: id, Name: req.Name}
+	ctx := r.Context()
+	before, err := s.queries.GetLedger(ctx, id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "ledger not found")
+		return
+	}
+	if before.IsSystem {
+		writeError(w, http.StatusBadRequest, "the system Opening Balance ledger cannot be edited")
+		return
+	}
+
+	params := db.UpdateLedgerParams{ID: id, Name: req.Name, Type: db.LedgerType(req.Type)}
 	if req.CO != "" {
 		params.CO = &req.CO
 	}
@@ -58,11 +70,25 @@ func (s *Server) updateLedger(w http.ResponseWriter, r *http.Request) {
 		params.Address = &req.Address
 	}
 
-	ledger, err := s.queries.UpdateLedger(r.Context(), params)
+	ledger, err := s.queries.UpdateLedger(ctx, params)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "ledger not found")
+		writeError(w, http.StatusBadRequest, "invalid ledger type")
 		return
 	}
+
+	beforeBytes, _ := json.Marshal(before)
+	afterBytes, _ := json.Marshal(ledger)
+	if _, err := s.queries.CreateAuditLog(ctx, db.CreateAuditLogParams{
+		EntityType:     "ledger",
+		EntityID:       id,
+		Action:         db.AuditActionEdited,
+		BeforeSnapshot: beforeBytes,
+		AfterSnapshot:  afterBytes,
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
 	writeJSON(w, http.StatusOK, ledger)
 }
 

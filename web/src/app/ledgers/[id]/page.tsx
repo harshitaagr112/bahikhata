@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Download, GitMerge, Pencil, Phone, Trash2, Users } from "lucide-react";
 import {
+  addLedgerMobileNumber,
   deleteLedger,
   getLedger,
   getLedgerStatement,
@@ -11,8 +13,8 @@ import {
   mergeLedger,
   updateLedger,
 } from "@/lib/api";
-import type { Ledger, LedgerMobileNumber, StatementResponse } from "@/lib/types";
-import { Badge, Button, Card, ErrorBanner, Field, Money, MoneyDrCr, PageTitle, TextInput } from "@/components/ui";
+import { LEDGER_TYPES, type Ledger, type LedgerMobileNumber, type LedgerType, type StatementResponse } from "@/lib/types";
+import { Badge, Button, Card, ErrorBanner, Field, Money, MoneyDrCr, PageTitle, Select, TextInput } from "@/components/ui";
 import { LedgerPicker } from "@/components/LedgerPicker";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
@@ -36,8 +38,12 @@ export default function LedgerDetailPage() {
 
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
+  const [editType, setEditType] = useState<LedgerType>("customer");
   const [editCo, setEditCo] = useState("");
   const [editAddress, setEditAddress] = useState("");
+
+  const [newMobile, setNewMobile] = useState("");
+  const [addingMobile, setAddingMobile] = useState(false);
 
   const [showMerge, setShowMerge] = useState(false);
   const [mergeTarget, setMergeTarget] = useState<Ledger | null>(null);
@@ -48,6 +54,7 @@ export default function LedgerDetailPage() {
     getLedger(id).then((l) => {
       setLedger(l);
       setEditName(l.name);
+      setEditType(l.type);
       setEditCo(l.c_o ?? "");
       setEditAddress(l.address ?? "");
     });
@@ -67,11 +74,30 @@ export default function LedgerDetailPage() {
 
   async function handleSaveEdit() {
     try {
-      await updateLedger(id, { name: editName, c_o: editCo || undefined, address: editAddress || undefined });
+      await updateLedger(id, {
+        name: editName,
+        type: editType,
+        c_o: editCo || undefined,
+        address: editAddress || undefined,
+      });
       setEditing(false);
       loadLedger();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not update ledger");
+    }
+  }
+
+  async function handleAddMobile() {
+    if (!newMobile.trim()) return;
+    setAddingMobile(true);
+    try {
+      await addLedgerMobileNumber(id, newMobile.trim());
+      setNewMobile("");
+      loadLedger();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not add mobile number");
+    } finally {
+      setAddingMobile(false);
     }
   }
 
@@ -107,11 +133,40 @@ export default function LedgerDetailPage() {
             <Field label="Name">
               <TextInput value={editName} onChange={(e) => setEditName(e.target.value)} />
             </Field>
+            <Field label="Type">
+              <Select value={editType} onChange={(e) => setEditType(e.target.value as LedgerType)}>
+                {LEDGER_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
             <Field label="C/O">
               <TextInput value={editCo} onChange={(e) => setEditCo(e.target.value)} />
             </Field>
             <Field label="Address">
               <TextInput value={editAddress} onChange={(e) => setEditAddress(e.target.value)} />
+            </Field>
+            <Field
+              label="Add Mobile Number (optional)"
+              hint="Mobile numbers are append-only history — this adds a new one, it doesn't replace existing ones."
+            >
+              <div className="flex gap-2">
+                <TextInput
+                  value={newMobile}
+                  onChange={(e) => setNewMobile(e.target.value)}
+                  placeholder="e.g. 9876543210"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleAddMobile}
+                  disabled={addingMobile || !newMobile.trim()}
+                >
+                  Add
+                </Button>
+              </div>
             </Field>
             <div className="flex gap-3">
               <Button onClick={handleSaveEdit}>Save</Button>
@@ -121,7 +176,7 @@ export default function LedgerDetailPage() {
             </div>
           </div>
         ) : (
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
             <div>
               <PageTitle icon={<Users size={20} />}>{ledger.name}</PageTitle>
               <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -137,7 +192,7 @@ export default function LedgerDetailPage() {
               )}
             </div>
             {!ledger.is_system && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button variant="secondary" onClick={() => setEditing(true)}>
                   <Pencil size={15} />
                   Edit
@@ -157,8 +212,8 @@ export default function LedgerDetailPage() {
       </Card>
 
       <Card>
-        <div className="mb-4 flex items-end justify-between gap-4">
-          <div className="flex gap-4">
+        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row">
             <Field label="From">
               <TextInput type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
             </Field>
@@ -171,7 +226,7 @@ export default function LedgerDetailPage() {
             target="_blank"
             rel="noreferrer"
           >
-            <Button variant="secondary">
+            <Button variant="secondary" className="w-full sm:w-auto">
               <Download size={16} />
               Export PDF
             </Button>
@@ -184,45 +239,62 @@ export default function LedgerDetailPage() {
               <span>Opening Balance</span>
               <MoneyDrCr value={statement.opening_balance} />
             </div>
-            <table className="mt-1 w-full text-sm">
-              <thead>
-                <tr className="text-left text-[13px] text-neutral-400">
-                  <th className="px-3 py-2 font-medium">Date</th>
-                  <th className="px-3 py-2 font-medium">Particular</th>
-                  <th className="px-3 py-2 text-right font-medium">Debit</th>
-                  <th className="px-3 py-2 text-right font-medium">Credit</th>
-                  <th className="px-3 py-2 text-right font-medium">Balance</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100">
-                {statement.entries.map((row) => (
-                  <tr
-                    key={row.entry_id}
-                    className="group cursor-pointer hover:bg-neutral-50"
-                    onClick={() => router.push(`/transactions/${row.transaction_id}/edit`)}
-                  >
-                    <td className="px-3 py-2.5 text-neutral-500">{row.date}</td>
-                    <td className="px-3 py-2.5 text-neutral-900">
-                      <div className="font-medium group-hover:underline">
-                        {row.counterparty || row.type}
-                      </div>
-                      {row.narration && (
-                        <div className="mt-0.5 text-sm text-neutral-600">{row.narration}</div>
-                      )}
-                    </td>
-                    <td className="px-3 py-2.5 text-right">
-                      {parseFloat(row.debit) > 0 ? <Money value={row.debit} /> : "—"}
-                    </td>
-                    <td className="px-3 py-2.5 text-right">
-                      {parseFloat(row.credit) > 0 ? <Money value={row.credit} /> : "—"}
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-medium text-neutral-900">
-                      <MoneyDrCr value={row.balance} />
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="mt-1 w-full min-w-[560px] text-sm">
+                <thead>
+                  <tr className="text-left text-[13px] text-neutral-400">
+                    <th className="px-3 py-2 font-medium">Date</th>
+                    <th className="px-3 py-2 font-medium">Particular</th>
+                    <th className="px-3 py-2 text-right font-medium">Debit</th>
+                    <th className="px-3 py-2 text-right font-medium">Credit</th>
+                    <th className="px-3 py-2 text-right font-medium">Balance</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-neutral-100">
+                  {statement.entries.map((row) => (
+                    <tr
+                      key={row.entry_id}
+                      className="group cursor-pointer hover:bg-neutral-50"
+                      onClick={() => router.push(`/transactions/${row.transaction_id}/edit`)}
+                    >
+                      <td className="px-3 py-2.5 whitespace-nowrap text-neutral-500">{row.date}</td>
+                      <td className="px-3 py-2.5 text-neutral-900">
+                        <div className="font-medium">
+                          {row.counterparties.length > 0 ? (
+                            row.counterparties.map((cp, i) => (
+                              <span key={cp.ledger_id}>
+                                {i > 0 && ", "}
+                                <Link
+                                  href={`/ledgers/${cp.ledger_id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="hover:text-[var(--accent)] hover:underline"
+                                >
+                                  {cp.name}
+                                </Link>
+                              </span>
+                            ))
+                          ) : (
+                            row.type
+                          )}
+                        </div>
+                        {row.narration && (
+                          <div className="mt-0.5 text-sm text-neutral-600">{row.narration}</div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                        {parseFloat(row.debit) > 0 ? <Money value={row.debit} /> : "—"}
+                      </td>
+                      <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                        {parseFloat(row.credit) > 0 ? <Money value={row.credit} /> : "—"}
+                      </td>
+                      <td className="px-3 py-2.5 text-right whitespace-nowrap font-medium text-neutral-900">
+                        <MoneyDrCr value={row.balance} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             {statement.entries.length === 0 && (
               <p className="mt-3 px-3 text-sm text-neutral-400">No transactions in this date range.</p>
             )}

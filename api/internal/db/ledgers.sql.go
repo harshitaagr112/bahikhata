@@ -120,6 +120,38 @@ func (q *Queries) GetOpeningBalanceLedger(ctx context.Context) (Ledger, error) {
 	return i, err
 }
 
+const latestMobileNumbersForLedgers = `-- name: LatestMobileNumbersForLedgers :many
+SELECT DISTINCT ON (ledger_id) ledger_id, number
+FROM ledger_mobile_numbers
+WHERE ledger_id = ANY($1::bigint[])
+ORDER BY ledger_id, added_at DESC
+`
+
+type LatestMobileNumbersForLedgersRow struct {
+	LedgerID int64  `json:"ledger_id"`
+	Number   string `json:"number"`
+}
+
+func (q *Queries) LatestMobileNumbersForLedgers(ctx context.Context, dollar_1 []int64) ([]LatestMobileNumbersForLedgersRow, error) {
+	rows, err := q.db.Query(ctx, latestMobileNumbersForLedgers, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LatestMobileNumbersForLedgersRow
+	for rows.Next() {
+		var i LatestMobileNumbersForLedgersRow
+		if err := rows.Scan(&i.LedgerID, &i.Number); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const ledgerHasTransactions = `-- name: LedgerHasTransactions :one
 SELECT EXISTS(SELECT 1 FROM transaction_entries WHERE ledger_id = $1)
 `
@@ -202,14 +234,16 @@ WHERE l.merged_into_id IS NULL AND (
     l.c_o ILIKE '%' || $1 || '%' OR
     m.number ILIKE '%' || $1 || '%'
 )
+AND ($4::text[] IS NULL OR l.type::text = ANY($4::text[]))
 ORDER BY l.name
 LIMIT $2 OFFSET $3
 `
 
 type SearchLedgersParams struct {
-	Column1 *string `json:"column_1"`
-	Limit   int32   `json:"limit"`
-	Offset  int32   `json:"offset"`
+	Column1 *string  `json:"column_1"`
+	Limit   int32    `json:"limit"`
+	Offset  int32    `json:"offset"`
+	Types   []string `json:"types"`
 }
 
 type SearchLedgersRow struct {
@@ -226,7 +260,12 @@ type SearchLedgersRow struct {
 }
 
 func (q *Queries) SearchLedgers(ctx context.Context, arg SearchLedgersParams) ([]SearchLedgersRow, error) {
-	rows, err := q.db.Query(ctx, searchLedgers, arg.Column1, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, searchLedgers,
+		arg.Column1,
+		arg.Limit,
+		arg.Offset,
+		arg.Types,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -257,15 +296,16 @@ func (q *Queries) SearchLedgers(ctx context.Context, arg SearchLedgersParams) ([
 }
 
 const updateLedger = `-- name: UpdateLedger :one
-UPDATE ledgers SET name = $2, c_o = $3, address = $4, updated_at = now()
+UPDATE ledgers SET name = $2, c_o = $3, address = $4, type = $5, updated_at = now()
 WHERE id = $1 RETURNING id, name, type, c_o, address, is_system, merged_into_id, created_at, updated_at
 `
 
 type UpdateLedgerParams struct {
-	ID      int64   `json:"id"`
-	Name    string  `json:"name"`
-	CO      *string `json:"c_o"`
-	Address *string `json:"address"`
+	ID      int64      `json:"id"`
+	Name    string     `json:"name"`
+	CO      *string    `json:"c_o"`
+	Address *string    `json:"address"`
+	Type    LedgerType `json:"type"`
 }
 
 func (q *Queries) UpdateLedger(ctx context.Context, arg UpdateLedgerParams) (Ledger, error) {
@@ -274,6 +314,7 @@ func (q *Queries) UpdateLedger(ctx context.Context, arg UpdateLedgerParams) (Led
 		arg.Name,
 		arg.CO,
 		arg.Address,
+		arg.Type,
 	)
 	var i Ledger
 	err := row.Scan(

@@ -25,12 +25,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="h-full flex">
+      <body className="h-full">
         <AuthGate>
-          <Nav />
-          <main className="flex-1 overflow-y-auto px-8 py-8">
-            <div className="mx-auto w-full max-w-4xl">{children}</div>
-          </main>
+          <div className="flex h-full flex-col md:flex-row">
+            <Nav />
+            <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-8 md:px-8">
+              <div className="mx-auto w-full max-w-4xl">{children}</div>
+            </main>
+          </div>
         </AuthGate>
       </body>
     </html>

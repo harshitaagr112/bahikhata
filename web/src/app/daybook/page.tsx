@@ -46,7 +46,7 @@ export default function DaybookPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <PageTitle icon={<BookOpenText size={20} />} subtitle="Chronological record of every transaction">
           Daybook
         </PageTitle>
@@ -59,7 +59,7 @@ export default function DaybookPage() {
       </div>
       <ErrorBanner message={error} />
 
-      <Card className="flex gap-4 py-4">
+      <Card className="flex flex-col gap-4 py-4 sm:flex-row">
         <Field label="From">
           <TextInput type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
         </Field>

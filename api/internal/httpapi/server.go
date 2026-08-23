@@ -77,6 +77,22 @@ func (s *Server) routes() chi.Router {
 		r.Get("/api/daybook/pdf", s.daybookPDF)
 		r.Get("/api/outstanding", s.outstanding)
 		r.Get("/api/outstanding/pdf", s.outstandingPDF)
+
+		r.Route("/api/insurance-policies", func(r chi.Router) {
+			r.Get("/", s.listInsurancePolicies)
+			r.Post("/", s.createInsurancePolicy)
+			r.Get("/companies", s.listInsuranceCompanies)
+			r.Get("/vehicle-categories", s.listInsuranceVehicleCategories)
+			r.Route("/{id}", func(r chi.Router) {
+				r.Get("/", s.getInsurancePolicy)
+				r.Put("/", s.updateInsurancePolicy)
+				r.Delete("/", s.deleteInsurancePolicy)
+			})
+		})
+		r.Get("/api/insurance/renewals", s.insuranceRenewals)
+		r.Get("/api/insurance/renewals/pdf", s.insuranceRenewalsPDF)
+		r.Get("/api/insurance/commission-payouts", s.insuranceCommissionPayouts)
+		r.Get("/api/insurance/commission-payouts/pdf", s.insuranceCommissionPayoutsPDF)
 	})
 
 	return r

@@ -2,9 +2,11 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"math/big"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -13,6 +15,32 @@ import (
 	"tally-api/internal/accounting"
 	"tally-api/internal/db"
 )
+
+// ledgerCounterparty mirrors LedgerStatement's json_build_object shape
+// (ledger_id, name) for each of a transaction's other legs — the frontend
+// links each one to its own ledger page (docs/DECISIONS.md item 5).
+type ledgerCounterparty struct {
+	LedgerID int64  `json:"ledger_id"`
+	Name     string `json:"name"`
+}
+
+// parseCounterparties decodes LedgerStatement's counterparties column (a
+// json_agg cast to text, so it always parses even if the leg list is empty).
+func parseCounterparties(raw string) []ledgerCounterparty {
+	parties := []ledgerCounterparty{}
+	_ = json.Unmarshal([]byte(raw), &parties)
+	return parties
+}
+
+// counterpartyNames comma-joins a statement row's other legs by name — used
+// only where plain text is wanted (the PDF export).
+func counterpartyNames(parties []ledgerCounterparty) string {
+	names := make([]string, 0, len(parties))
+	for _, p := range parties {
+		names = append(names, p.Name)
+	}
+	return strings.Join(names, ", ")
+}
 
 func parseDateParam(r *http.Request, name string, fallback time.Time) (time.Time, error) {
 	v := r.URL.Query().Get(name)
@@ -31,15 +59,15 @@ func pgtypeTimestamptz(t time.Time) pgtype.Timestamptz {
 }
 
 type statementRow struct {
-	EntryID       int64  `json:"entry_id"`
-	TransactionID int64  `json:"transaction_id"`
-	Date          string `json:"date"`
-	Type          string `json:"type"`
-	Narration     string `json:"narration"`
-	Counterparty  string `json:"counterparty"`
-	Debit         string `json:"debit"`
-	Credit        string `json:"credit"`
-	Balance       string `json:"balance"`
+	EntryID        int64                `json:"entry_id"`
+	TransactionID  int64                `json:"transaction_id"`
+	Date           string               `json:"date"`
+	Type           string               `json:"type"`
+	Narration      string               `json:"narration"`
+	Counterparties []ledgerCounterparty `json:"counterparties"`
+	Debit          string               `json:"debit"`
+	Credit         string               `json:"credit"`
+	Balance        string               `json:"balance"`
 }
 
 type ledgerStatementResult struct {
@@ -87,15 +115,15 @@ func (s *Server) buildLedgerStatement(ctx context.Context, ledgerID int64, from,
 			narration = *row.Narration
 		}
 		out = append(out, statementRow{
-			EntryID:       row.EntryID,
-			TransactionID: row.TransactionID,
-			Date:          row.TxnDate.Time.Format("2006-01-02"),
-			Type:          string(row.Type),
-			Narration:     narration,
-			Counterparty:  string(row.Counterparty),
-			Debit:         accounting.DecimalString(accounting.ToRat(row.Debit)),
-			Credit:        accounting.DecimalString(accounting.ToRat(row.Credit)),
-			Balance:       accounting.DecimalString(new(big.Rat).Set(running)),
+			EntryID:        row.EntryID,
+			TransactionID:  row.TransactionID,
+			Date:           row.TxnDate.Time.Format("2006-01-02"),
+			Type:           string(row.Type),
+			Narration:      narration,
+			Counterparties: parseCounterparties(row.Counterparties),
+			Debit:          accounting.DecimalString(accounting.ToRat(row.Debit)),
+			Credit:         accounting.DecimalString(accounting.ToRat(row.Credit)),
+			Balance:        accounting.DecimalString(new(big.Rat).Set(running)),
 		})
 	}
 
@@ -238,24 +266,35 @@ func (s *Server) buildDaybook(ctx context.Context, from, to time.Time, limit, of
 		return daybookResult{}, err
 	}
 
-	out := make([]daybookRow, 0, len(txns))
+	txnIDs := make([]int64, len(txns))
+	for i, txn := range txns {
+		txnIDs[i] = txn.ID
+	}
+	entriesByTxn := make(map[int64][]daybookEntry, len(txns))
 	totalDebit := new(big.Rat)
 	totalCredit := new(big.Rat)
-	for _, txn := range txns {
-		rows, err := s.queries.ListTransactionEntriesWithLedgerNames(ctx, txn.ID)
+	if len(txnIDs) > 0 {
+		rows, err := s.queries.ListTransactionEntriesWithLedgerNamesForTransactions(ctx, txnIDs)
 		if err != nil {
 			return daybookResult{}, err
 		}
-		entries := make([]daybookEntry, 0, len(rows))
 		for _, row := range rows {
 			totalDebit.Add(totalDebit, accounting.ToRat(row.Debit))
 			totalCredit.Add(totalCredit, accounting.ToRat(row.Credit))
-			entries = append(entries, daybookEntry{
+			entriesByTxn[row.TransactionID] = append(entriesByTxn[row.TransactionID], daybookEntry{
 				LedgerID:   row.LedgerID,
 				LedgerName: row.LedgerName,
 				Debit:      accounting.DecimalString(accounting.ToRat(row.Debit)),
 				Credit:     accounting.DecimalString(accounting.ToRat(row.Credit)),
 			})
+		}
+	}
+
+	out := make([]daybookRow, 0, len(txns))
+	for _, txn := range txns {
+		entries := entriesByTxn[txn.ID]
+		if entries == nil {
+			entries = []daybookEntry{}
 		}
 		out = append(out, daybookRow{Transaction: txn, Entries: entries})
 	}

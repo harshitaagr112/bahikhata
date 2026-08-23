@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
 
@@ -163,6 +164,18 @@ type ledgerSearchResult struct {
 	MobileNumbers string `json:"mobile_numbers"`
 }
 
+// ledgerTypesParam parses an optional comma-separated ?type=cash,bank
+// filter. Only the /ledgers list page's own default (empty-search) view
+// uses this — LedgerPicker (used inline on every transaction form) never
+// sends it, so its own search behavior is unaffected by this filter.
+func ledgerTypesParam(r *http.Request) []string {
+	v := r.URL.Query().Get("type")
+	if v == "" {
+		return nil
+	}
+	return strings.Split(v, ",")
+}
+
 func (s *Server) searchLedgers(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 
@@ -170,6 +183,7 @@ func (s *Server) searchLedgers(w http.ResponseWriter, r *http.Request) {
 		Column1: &q,
 		Limit:   50,
 		Offset:  0,
+		Types:   ledgerTypesParam(r),
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

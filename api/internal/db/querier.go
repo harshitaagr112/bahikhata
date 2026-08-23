@@ -13,33 +13,44 @@ import (
 type Querier interface {
 	AddLedgerMobileNumber(ctx context.Context, arg AddLedgerMobileNumberParams) (LedgerMobileNumber, error)
 	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) (AuditLog, error)
+	CreateInsurancePolicy(ctx context.Context, arg CreateInsurancePolicyParams) (InsurancePolicy, error)
 	CreateLedger(ctx context.Context, arg CreateLedgerParams) (Ledger, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error)
 	CreateTransactionEntry(ctx context.Context, arg CreateTransactionEntryParams) (TransactionEntry, error)
 	DeleteExpiredSessions(ctx context.Context) error
+	DeleteInsurancePolicy(ctx context.Context, id int64) error
 	DeleteLedgerIfUnused(ctx context.Context, id int64) (int64, error)
 	DeleteSession(ctx context.Context, token string) error
 	DeleteTransaction(ctx context.Context, id int64) error
 	DeleteTransactionEntries(ctx context.Context, transactionID int64) error
+	GetInsurancePolicy(ctx context.Context, id int64) (InsurancePolicy, error)
 	GetLedger(ctx context.Context, id int64) (Ledger, error)
 	GetOpeningBalanceLedger(ctx context.Context) (Ledger, error)
 	GetTransaction(ctx context.Context, id int64) (Transaction, error)
 	GetValidSession(ctx context.Context, token string) (Session, error)
+	LatestMobileNumbersForLedgers(ctx context.Context, dollar_1 []int64) ([]LatestMobileNumbersForLedgersRow, error)
 	LedgerBalance(ctx context.Context, ledgerID int64) (LedgerBalanceRow, error)
 	LedgerBalanceBefore(ctx context.Context, arg LedgerBalanceBeforeParams) (pgtype.Numeric, error)
 	LedgerHasTransactions(ctx context.Context, ledgerID int64) (bool, error)
 	LedgerStatement(ctx context.Context, arg LedgerStatementParams) ([]LedgerStatementRow, error)
 	ListAuditLogForEntity(ctx context.Context, arg ListAuditLogForEntityParams) ([]AuditLog, error)
 	ListDaybook(ctx context.Context, arg ListDaybookParams) ([]Transaction, error)
+	ListInsuranceCommissionPayouts(ctx context.Context, arg ListInsuranceCommissionPayoutsParams) ([]InsurancePolicy, error)
+	ListInsuranceCompanies(ctx context.Context) ([]string, error)
+	ListInsurancePolicies(ctx context.Context, arg ListInsurancePoliciesParams) ([]InsurancePolicy, error)
+	ListInsuranceRenewals(ctx context.Context, arg ListInsuranceRenewalsParams) ([]InsurancePolicy, error)
+	ListInsuranceVehicleCategories(ctx context.Context) ([]*string, error)
 	ListLedgerMobileNumbers(ctx context.Context, ledgerID int64) ([]LedgerMobileNumber, error)
 	ListTransactionEntries(ctx context.Context, transactionID int64) ([]TransactionEntry, error)
 	ListTransactionEntriesWithLedgerNames(ctx context.Context, transactionID int64) ([]ListTransactionEntriesWithLedgerNamesRow, error)
+	ListTransactionEntriesWithLedgerNamesForTransactions(ctx context.Context, dollar_1 []int64) ([]ListTransactionEntriesWithLedgerNamesForTransactionsRow, error)
 	MergeLedger(ctx context.Context, arg MergeLedgerParams) error
 	MoveLedgerEntries(ctx context.Context, arg MoveLedgerEntriesParams) error
 	OutstandingLedgers(ctx context.Context) ([]OutstandingLedgersRow, error)
 	ResolveLedgerMergeTarget(ctx context.Context, id int64) (int64, error)
 	SearchLedgers(ctx context.Context, arg SearchLedgersParams) ([]SearchLedgersRow, error)
+	UpdateInsurancePolicy(ctx context.Context, arg UpdateInsurancePolicyParams) (InsurancePolicy, error)
 	UpdateLedger(ctx context.Context, arg UpdateLedgerParams) (Ledger, error)
 	UpdateTransaction(ctx context.Context, arg UpdateTransactionParams) (Transaction, error)
 }

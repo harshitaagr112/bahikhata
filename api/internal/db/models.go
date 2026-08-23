@@ -159,6 +159,30 @@ type AuditLog struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type InsurancePolicy struct {
+	ID                   int64              `json:"id"`
+	LedgerID             *int64             `json:"ledger_id"`
+	InsuredName          string             `json:"insured_name"`
+	Location             *string            `json:"location"`
+	MobileNo             *string            `json:"mobile_no"`
+	PaymentMode          *string            `json:"payment_mode"`
+	Company              string             `json:"company"`
+	VehicleCategory      *string            `json:"vehicle_category"`
+	VehicleModel         *string            `json:"vehicle_model"`
+	RegistrationNo       *string            `json:"registration_no"`
+	PolicyNo             *string            `json:"policy_no"`
+	IssueDate            pgtype.Date        `json:"issue_date"`
+	ExpiryDate           pgtype.Date        `json:"expiry_date"`
+	SumAssured           *string            `json:"sum_assured"`
+	OdPremium            *string            `json:"od_premium"`
+	NetPremium           pgtype.Numeric     `json:"net_premium"`
+	TotalPremium         pgtype.Numeric     `json:"total_premium"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	CommissionBasis      string             `json:"commission_basis"`
+	CommissionPercentage pgtype.Numeric     `json:"commission_percentage"`
+}
+
 type Ledger struct {
 	ID           int64              `json:"id"`
 	Name         string             `json:"name"`
