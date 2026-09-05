@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { MapPin, Phone, UserPlus, Search, UsersRound } from "lucide-react";
-import { addLedgerMobileNumber, createLedger, searchLedgers } from "@/lib/api";
+import { addLedgerMobileNumber, createLedger, getLedgerBalance, searchLedgers } from "@/lib/api";
 import { LEDGER_TYPES, type Ledger, type LedgerType } from "@/lib/types";
-import { Badge, Button, Field, Select, TextInput } from "./ui";
+import { Badge, Button, Field, MoneyDrCr, Select, TextInput } from "./ui";
+
+const PREFERRED_LEDGER_TYPES: LedgerType[] = ["cash", "bank", "limit", "other", "customer", "income", "expense", "discount"];
 
 export function LedgerPicker({
   label,
@@ -24,17 +26,48 @@ export function LedgerPicker({
   const [results, setResults] = useState<Ledger[]>([]);
   const [open, setOpen] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [balance, setBalance] = useState<{ ledgerId: number; value: string | null } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
     const handle = setTimeout(() => {
-      searchLedgers(query)
-        .then((ledgers) => setResults(excludeSystem ? ledgers.filter((l) => !l.is_system) : ledgers))
+      const queryTrimmed = query.trim();
+
+      searchLedgers(queryTrimmed)
+        .then((ledgers) => {
+          const filtered = excludeSystem ? ledgers.filter((l) => !l.is_system) : ledgers;
+          const ordered = [...filtered].sort((a, b) => {
+            const aRank = PREFERRED_LEDGER_TYPES.indexOf(a.type);
+            const bRank = PREFERRED_LEDGER_TYPES.indexOf(b.type);
+            const rankA = aRank === -1 ? Number.MAX_SAFE_INTEGER : aRank;
+            const rankB = bRank === -1 ? Number.MAX_SAFE_INTEGER : bRank;
+            if (rankA !== rankB) return rankA - rankB;
+            return a.name.localeCompare(b.name);
+          });
+          setResults(ordered);
+        })
         .catch(() => setResults([]));
     }, 250);
     return () => clearTimeout(handle);
   }, [query, open, excludeSystem]);
+
+  useEffect(() => {
+    if (!value) return;
+
+    let active = true;
+    getLedgerBalance(value.id)
+      .then((response) => {
+        if (active) setBalance({ ledgerId: value.id, value: response.balance });
+      })
+      .catch(() => {
+        if (active) setBalance({ ledgerId: value.id, value: null });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [value]);
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -46,6 +79,8 @@ export function LedgerPicker({
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
+  const displayValue = query || (value && !open ? value.name : "");
+
   return (
     <div className="relative" ref={containerRef}>
       <Field label={label}>
@@ -56,14 +91,22 @@ export function LedgerPicker({
           />
           <TextInput
             placeholder="Search by name, mobile, address..."
-            className="pl-10"
-            value={value ? value.name : query}
-            onFocus={() => setOpen(true)}
+            className={value && !query ? "pl-10 pr-36" : "pl-10"}
+            value={displayValue}
+            onFocus={() => {
+              if (value) setQuery(value.name);
+              setOpen(true);
+            }}
             onChange={(e) => {
               setQuery(e.target.value);
               setOpen(true);
             }}
           />
+          {value && !query && (
+            <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 whitespace-nowrap text-xs text-neutral-500">
+              Closing: {balance?.ledgerId !== value.id || balance.value === null ? "..." : <MoneyDrCr value={balance.value} />}
+            </span>
+          )}
         </div>
       </Field>
       {value && (

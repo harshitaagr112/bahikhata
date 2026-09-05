@@ -18,11 +18,9 @@ import {
   TextInput,
 } from "@/components/ui";
 
-function currentMonthRange(): { from: string; to: string } {
-  const now = new Date();
-  const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-  const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
-  return { from, to };
+function todayRange(): { from: string; to: string } {
+  const today = new Date().toISOString().slice(0, 10);
+  return { from: today, to: today };
 }
 
 function groupByCompany(rows: InsurancePolicy[]): [string, InsurancePolicy[]][] {
@@ -36,7 +34,7 @@ function groupByCompany(rows: InsurancePolicy[]): [string, InsurancePolicy[]][] 
 }
 
 export default function InsuranceCommissionPayoutsPage() {
-  const defaultRange = currentMonthRange();
+  const defaultRange = todayRange();
   const [from, setFrom] = useState(defaultRange.from);
   const [to, setTo] = useState(defaultRange.to);
   const [company, setCompany] = useState("");

@@ -4,6 +4,7 @@ import type {
   ReactNode,
   SelectHTMLAttributes,
 } from "react";
+import { useRef } from "react";
 
 export function Field({
   label,
@@ -14,8 +15,28 @@ export function Field({
   children: ReactNode;
   hint?: string;
 }) {
+  const ref = useRef<HTMLLabelElement | null>(null);
+
+  function focusInnerInput() {
+    if (!ref.current) return;
+    const input = ref.current.querySelector<HTMLElement>("input, select, textarea, [tabindex]");
+    if (input && typeof input.focus === "function") input.focus();
+  }
+
   return (
-    <label className="flex flex-col gap-1.5">
+    <label
+      ref={ref}
+      onClick={(e) => {
+        // If the user clicked directly on a focusable element, let the
+        // browser handle it. Otherwise focus the inner input so clicking
+        // anywhere in the field opens things like the native date picker.
+        const target = e.target as HTMLElement | null;
+        if (!target) return;
+        if (target.matches("input, select, textarea, button, label")) return;
+        focusInnerInput();
+      }}
+      className="flex flex-col gap-1.5"
+    >
       <span className="text-[13px] font-medium text-neutral-600">{label}</span>
       {children}
       {hint && <span className="text-xs text-neutral-400">{hint}</span>}

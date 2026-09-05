@@ -174,6 +174,14 @@ export const KNOWN_INSURANCE_COMPANIES: string[] = [
 
 export type CommissionBasis = "net_premium" | "od_premium";
 
+export const VEHICLE_CATEGORY_OPTIONS = [
+  "Goods carrying vehicle",
+  "private car",
+  "two wheeler",
+  "misc",
+  "public carrying vehicle",
+] as const;
+
 export const COMMISSION_BASIS_OPTIONS: { value: CommissionBasis; label: string }[] = [
   { value: "net_premium", label: "Net Premium" },
   { value: "od_premium", label: "OD Premium" },

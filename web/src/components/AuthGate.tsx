@@ -19,15 +19,32 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (authenticated === true) return;
+    let active = true;
+
     getMe()
-      .then((res) => setAuthenticated(res.authenticated))
-      .catch(() => setAuthenticated(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      .then((res) => {
+        if (!active) return;
+        setAuthenticated(res.authenticated);
+      })
+      .catch(() => {
+        if (!active) return;
+        setAuthenticated(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [pathname]);
 
   useEffect(() => {
-    if (authenticated === false && !isPublicPath(pathname)) {
+    if (pathname === "/login") {
+      if (authenticated === true) {
+        router.replace("/");
+      }
+      return;
+    }
+
+    if (authenticated === false) {
       router.replace("/login");
     }
   }, [authenticated, pathname, router]);

@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -31,6 +32,25 @@ func normalizeCommissionBasis(s string) string {
 		return commissionBasisODPremium
 	}
 	return commissionBasisNetPremium
+}
+
+var allowedVehicleCategories = map[string]string{
+	"goods carrying vehicle":  "Goods carrying vehicle",
+	"private car":             "private car",
+	"two wheeler":             "two wheeler",
+	"misc":                    "misc",
+	"public carrying vehicle": "public carrying vehicle",
+}
+
+func normalizeVehicleCategory(s string) string {
+	trimmed := strings.TrimSpace(s)
+	if trimmed == "" {
+		return ""
+	}
+	if normalized, ok := allowedVehicleCategories[strings.ToLower(trimmed)]; ok {
+		return normalized
+	}
+	return ""
 }
 
 // parseOptionalPercentage parses an optional plain decimal percentage
@@ -183,6 +203,14 @@ func (s *Server) createInsurancePolicy(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "insured_name and company are required")
 		return
 	}
+	if req.VehicleCategory != "" {
+		normalized := normalizeVehicleCategory(req.VehicleCategory)
+		if normalized == "" {
+			writeError(w, http.StatusBadRequest, "vehicle_category must be one of: Goods carrying vehicle, private car, two wheeler, misc, public carrying vehicle")
+			return
+		}
+		req.VehicleCategory = normalized
+	}
 
 	issueDate, err := parseTxnDate(req.IssueDate)
 	if err != nil {
@@ -277,6 +305,14 @@ func (s *Server) updateInsurancePolicy(w http.ResponseWriter, r *http.Request) {
 	if req.InsuredName == "" || req.Company == "" {
 		writeError(w, http.StatusBadRequest, "insured_name and company are required")
 		return
+	}
+	if req.VehicleCategory != "" {
+		normalized := normalizeVehicleCategory(req.VehicleCategory)
+		if normalized == "" {
+			writeError(w, http.StatusBadRequest, "vehicle_category must be one of: Goods carrying vehicle, private car, two wheeler, misc, public carrying vehicle")
+			return
+		}
+		req.VehicleCategory = normalized
 	}
 
 	issueDate, err := parseTxnDate(req.IssueDate)

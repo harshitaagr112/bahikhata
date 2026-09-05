@@ -18,10 +18,8 @@ import { Badge, Button, Card, ErrorBanner, Field, Money, MoneyDrCr, PageTitle, S
 import { LedgerPicker } from "@/components/LedgerPicker";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
-function daysAgoISO(days: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 export default function LedgerDetailPage() {
@@ -32,8 +30,8 @@ export default function LedgerDetailPage() {
   const [ledger, setLedger] = useState<Ledger | null>(null);
   const [mobileNumbers, setMobileNumbers] = useState<LedgerMobileNumber[]>([]);
   const [statement, setStatement] = useState<StatementResponse | null>(null);
-  const [from, setFrom] = useState(daysAgoISO(90));
-  const [to, setTo] = useState(daysAgoISO(0));
+  const [from, setFrom] = useState(todayISO());
+  const [to, setTo] = useState(todayISO());
   const [error, setError] = useState("");
 
   const [editing, setEditing] = useState(false);

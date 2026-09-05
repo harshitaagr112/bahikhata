@@ -4,12 +4,12 @@ package pdf
 // are already formatted for display (signed balance shown as e.g. "500.00
 // Dr", never a bare minus sign).
 type StatementRow struct {
-	Date         string
-	Particular   string // counterparty name (or transaction type as fallback)
-	Narration    string
-	Debit        string
-	Credit       string
-	Balance      string
+	Date       string
+	Particular string // counterparty name (or transaction type as fallback)
+	Narration  string
+	Debit      string
+	Credit     string
+	Balance    string
 }
 
 type StatementInput struct {
@@ -94,7 +94,7 @@ func LedgerStatement(in StatementInput) ([]byte, error) {
 
 func moneyOrDash(v string) string {
 	if v == "" || v == "0.00" {
-		return "—"
+		return "-"
 	}
 	return v
 }

@@ -7,10 +7,8 @@ import type { DaybookRow } from "@/lib/types";
 import { Button, Card, EmptyState, ErrorBanner, Field, Money, PageTitle, TextInput } from "@/components/ui";
 import { TransactionRow } from "@/components/TransactionRow";
 
-function daysAgoISO(days: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return d.toISOString().slice(0, 10);
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function groupByDate(rows: DaybookRow[]): [string, DaybookRow[]][] {
@@ -24,8 +22,8 @@ function groupByDate(rows: DaybookRow[]): [string, DaybookRow[]][] {
 }
 
 export default function DaybookPage() {
-  const [from, setFrom] = useState(daysAgoISO(30));
-  const [to, setTo] = useState(daysAgoISO(0));
+  const [from, setFrom] = useState(todayISO());
+  const [to, setTo] = useState(todayISO());
   const [rows, setRows] = useState<DaybookRow[]>([]);
   const [totals, setTotals] = useState({ total_debit: "0.00", total_credit: "0.00" });
   const [error, setError] = useState("");
