@@ -6,13 +6,13 @@ import { ShieldCheck } from "lucide-react";
 import {
   createInsurancePolicy,
   listInsuranceCompanies,
-  listInsuranceVehicleCategories,
   searchLedgers,
   updateInsurancePolicy,
 } from "@/lib/api";
 import {
   COMMISSION_BASIS_OPTIONS,
   KNOWN_INSURANCE_COMPANIES,
+  VEHICLE_CATEGORY_OPTIONS,
   type CommissionBasis,
   type InsurancePolicy,
   type InsurancePolicyInput,
@@ -60,7 +60,6 @@ export function InsurancePolicyForm({
 
   const [ledger, setLedger] = useState<Ledger | null>(initialLedger ?? null);
   const [companies, setCompanies] = useState<string[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
   const [mobileMatch, setMobileMatch] = useState<Ledger | null>(null);
 
   const [error, setError] = useState("");
@@ -75,7 +74,6 @@ export function InsurancePolicyForm({
         )
       )
       .catch(() => setCompanies(KNOWN_INSURANCE_COMPANIES));
-    listInsuranceVehicleCategories().then(setCategories).catch(() => {});
   }, []);
 
   // Mobile-match suggestion: once the user's typed a plausible number and no
@@ -212,17 +210,18 @@ export function InsurancePolicyForm({
             ))}
           </datalist>
           <Field label="Vehicle Category (optional)">
-            <TextInput
-              list="insurance-vehicle-categories"
+            <Select
               value={vehicleCategory}
               onChange={(e) => setVehicleCategory(e.target.value)}
-            />
+            >
+              <option value="">— Select category —</option>
+              {VEHICLE_CATEGORY_OPTIONS.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </Select>
           </Field>
-          <datalist id="insurance-vehicle-categories">
-            {categories.map((c) => (
-              <option key={c} value={c} />
-            ))}
-          </datalist>
           <Field label="Vehicle Model (optional)">
             <TextInput value={vehicleModel} onChange={(e) => setVehicleModel(e.target.value)} />
           </Field>
