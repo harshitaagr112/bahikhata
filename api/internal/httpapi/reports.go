@@ -176,12 +176,10 @@ func (s *Server) ledgerBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	balance := new(big.Rat).Sub(accounting.ToRat(row.TotalDebit), accounting.ToRat(row.TotalCredit))
-
 	writeJSON(w, http.StatusOK, map[string]any{
 		"total_debit":  accounting.DecimalString(accounting.ToRat(row.TotalDebit)),
 		"total_credit": accounting.DecimalString(accounting.ToRat(row.TotalCredit)),
-		"balance":      accounting.DecimalString(balance),
+		"balance":      accounting.DecimalString(accounting.ToRat(row.ClosingBalance)),
 	})
 }
 

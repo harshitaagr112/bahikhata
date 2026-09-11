@@ -102,20 +102,20 @@ func (q *Queries) GetTransaction(ctx context.Context, id int64) (Transaction, er
 }
 
 const ledgerBalance = `-- name: LedgerBalance :one
-SELECT COALESCE(SUM(debit), 0)::numeric AS total_debit,
-       COALESCE(SUM(credit), 0)::numeric AS total_credit
-FROM transaction_entries WHERE ledger_id = $1
+SELECT total_debit, total_credit, closing_balance
+FROM ledgers WHERE id = $1
 `
 
 type LedgerBalanceRow struct {
-	TotalDebit  pgtype.Numeric `json:"total_debit"`
-	TotalCredit pgtype.Numeric `json:"total_credit"`
+	TotalDebit     pgtype.Numeric `json:"total_debit"`
+	TotalCredit    pgtype.Numeric `json:"total_credit"`
+	ClosingBalance pgtype.Numeric `json:"closing_balance"`
 }
 
-func (q *Queries) LedgerBalance(ctx context.Context, ledgerID int64) (LedgerBalanceRow, error) {
-	row := q.db.QueryRow(ctx, ledgerBalance, ledgerID)
+func (q *Queries) LedgerBalance(ctx context.Context, id int64) (LedgerBalanceRow, error) {
+	row := q.db.QueryRow(ctx, ledgerBalance, id)
 	var i LedgerBalanceRow
-	err := row.Scan(&i.TotalDebit, &i.TotalCredit)
+	err := row.Scan(&i.TotalDebit, &i.TotalCredit, &i.ClosingBalance)
 	return i, err
 }
 

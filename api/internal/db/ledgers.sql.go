@@ -33,7 +33,7 @@ func (q *Queries) AddLedgerMobileNumber(ctx context.Context, arg AddLedgerMobile
 }
 
 const createLedger = `-- name: CreateLedger :one
-INSERT INTO ledgers (name, type, c_o, address) VALUES ($1, $2, $3, $4) RETURNING id, name, type, c_o, address, is_system, merged_into_id, created_at, updated_at
+INSERT INTO ledgers (name, type, c_o, address) VALUES ($1, $2, $3, $4) RETURNING id, name, type, c_o, address, is_system, merged_into_id, created_at, updated_at, total_debit, total_credit, closing_balance
 `
 
 type CreateLedgerParams struct {
@@ -61,6 +61,9 @@ func (q *Queries) CreateLedger(ctx context.Context, arg CreateLedgerParams) (Led
 		&i.MergedIntoID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TotalDebit,
+		&i.TotalCredit,
+		&i.ClosingBalance,
 	)
 	return i, err
 }
@@ -79,7 +82,7 @@ func (q *Queries) DeleteLedgerIfUnused(ctx context.Context, id int64) (int64, er
 }
 
 const getLedger = `-- name: GetLedger :one
-SELECT id, name, type, c_o, address, is_system, merged_into_id, created_at, updated_at FROM ledgers WHERE id = $1
+SELECT id, name, type, c_o, address, is_system, merged_into_id, created_at, updated_at, total_debit, total_credit, closing_balance FROM ledgers WHERE id = $1
 `
 
 func (q *Queries) GetLedger(ctx context.Context, id int64) (Ledger, error) {
@@ -95,12 +98,15 @@ func (q *Queries) GetLedger(ctx context.Context, id int64) (Ledger, error) {
 		&i.MergedIntoID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TotalDebit,
+		&i.TotalCredit,
+		&i.ClosingBalance,
 	)
 	return i, err
 }
 
 const getOpeningBalanceLedger = `-- name: GetOpeningBalanceLedger :one
-SELECT id, name, type, c_o, address, is_system, merged_into_id, created_at, updated_at FROM ledgers WHERE is_system = TRUE LIMIT 1
+SELECT id, name, type, c_o, address, is_system, merged_into_id, created_at, updated_at, total_debit, total_credit, closing_balance FROM ledgers WHERE is_system = TRUE LIMIT 1
 `
 
 func (q *Queries) GetOpeningBalanceLedger(ctx context.Context) (Ledger, error) {
@@ -116,6 +122,9 @@ func (q *Queries) GetOpeningBalanceLedger(ctx context.Context) (Ledger, error) {
 		&i.MergedIntoID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TotalDebit,
+		&i.TotalCredit,
+		&i.ClosingBalance,
 	)
 	return i, err
 }
@@ -223,7 +232,7 @@ func (q *Queries) ResolveLedgerMergeTarget(ctx context.Context, id int64) (int64
 }
 
 const searchLedgers = `-- name: SearchLedgers :many
-SELECT DISTINCT l.id, l.name, l.type, l.c_o, l.address, l.is_system, l.merged_into_id, l.created_at, l.updated_at,
+SELECT DISTINCT l.id, l.name, l.type, l.c_o, l.address, l.is_system, l.merged_into_id, l.created_at, l.updated_at, l.total_debit, l.total_credit, l.closing_balance,
     (SELECT string_agg(m2.number, ', ' ORDER BY m2.added_at DESC)
         FROM ledger_mobile_numbers m2 WHERE m2.ledger_id = l.id) AS mobile_numbers
 FROM ledgers l
@@ -247,16 +256,19 @@ type SearchLedgersParams struct {
 }
 
 type SearchLedgersRow struct {
-	ID            int64              `json:"id"`
-	Name          string             `json:"name"`
-	Type          LedgerType         `json:"type"`
-	CO            *string            `json:"c_o"`
-	Address       *string            `json:"address"`
-	IsSystem      bool               `json:"is_system"`
-	MergedIntoID  *int64             `json:"merged_into_id"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-	MobileNumbers []byte             `json:"mobile_numbers"`
+	ID             int64              `json:"id"`
+	Name           string             `json:"name"`
+	Type           LedgerType         `json:"type"`
+	CO             *string            `json:"c_o"`
+	Address        *string            `json:"address"`
+	IsSystem       bool               `json:"is_system"`
+	MergedIntoID   *int64             `json:"merged_into_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	TotalDebit     pgtype.Numeric     `json:"total_debit"`
+	TotalCredit    pgtype.Numeric     `json:"total_credit"`
+	ClosingBalance pgtype.Numeric     `json:"closing_balance"`
+	MobileNumbers  []byte             `json:"mobile_numbers"`
 }
 
 func (q *Queries) SearchLedgers(ctx context.Context, arg SearchLedgersParams) ([]SearchLedgersRow, error) {
@@ -283,6 +295,9 @@ func (q *Queries) SearchLedgers(ctx context.Context, arg SearchLedgersParams) ([
 			&i.MergedIntoID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TotalDebit,
+			&i.TotalCredit,
+			&i.ClosingBalance,
 			&i.MobileNumbers,
 		); err != nil {
 			return nil, err
@@ -297,7 +312,7 @@ func (q *Queries) SearchLedgers(ctx context.Context, arg SearchLedgersParams) ([
 
 const updateLedger = `-- name: UpdateLedger :one
 UPDATE ledgers SET name = $2, c_o = $3, address = $4, type = $5, updated_at = now()
-WHERE id = $1 RETURNING id, name, type, c_o, address, is_system, merged_into_id, created_at, updated_at
+WHERE id = $1 RETURNING id, name, type, c_o, address, is_system, merged_into_id, created_at, updated_at, total_debit, total_credit, closing_balance
 `
 
 type UpdateLedgerParams struct {
@@ -327,6 +342,9 @@ func (q *Queries) UpdateLedger(ctx context.Context, arg UpdateLedgerParams) (Led
 		&i.MergedIntoID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TotalDebit,
+		&i.TotalCredit,
+		&i.ClosingBalance,
 	)
 	return i, err
 }

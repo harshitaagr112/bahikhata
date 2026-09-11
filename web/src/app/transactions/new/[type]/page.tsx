@@ -26,7 +26,7 @@ export default function NewTransactionPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-3">
       <TransactionTypeSwitcher current={type as AnyTransactionType} />
       {isJournal ? (
         <JournalForm key={type} date={date} onDateChange={setDate} />

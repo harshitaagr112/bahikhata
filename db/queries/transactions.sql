@@ -64,9 +64,8 @@ JOIN transactions t ON t.id = te.transaction_id
 WHERE te.ledger_id = $1 AND t.txn_date < $2;
 
 -- name: LedgerBalance :one
-SELECT COALESCE(SUM(debit), 0)::numeric AS total_debit,
-       COALESCE(SUM(credit), 0)::numeric AS total_credit
-FROM transaction_entries WHERE ledger_id = $1;
+SELECT total_debit, total_credit, closing_balance
+FROM ledgers WHERE id = $1;
 
 -- name: OutstandingLedgers :many
 SELECT l.id, l.name, l.type,

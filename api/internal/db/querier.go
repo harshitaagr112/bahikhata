@@ -30,7 +30,7 @@ type Querier interface {
 	GetTransaction(ctx context.Context, id int64) (Transaction, error)
 	GetValidSession(ctx context.Context, token string) (Session, error)
 	LatestMobileNumbersForLedgers(ctx context.Context, dollar_1 []int64) ([]LatestMobileNumbersForLedgersRow, error)
-	LedgerBalance(ctx context.Context, ledgerID int64) (LedgerBalanceRow, error)
+	LedgerBalance(ctx context.Context, id int64) (LedgerBalanceRow, error)
 	LedgerBalanceBefore(ctx context.Context, arg LedgerBalanceBeforeParams) (pgtype.Numeric, error)
 	LedgerHasTransactions(ctx context.Context, ledgerID int64) (bool, error)
 	LedgerStatement(ctx context.Context, arg LedgerStatementParams) ([]LedgerStatementRow, error)

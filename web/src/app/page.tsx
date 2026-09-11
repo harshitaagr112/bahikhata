@@ -49,6 +49,7 @@ function StatCard({
   value,
   tone,
   signed,
+  href,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -59,13 +60,14 @@ function StatCard({
    * totals are already unsigned (split by sign server-side), so they
    * should not set this. */
   signed?: boolean;
+  href?: string;
 }) {
   const toneClasses = {
     neutral: "bg-[var(--accent-soft)] text-[var(--accent)]",
     emerald: "bg-emerald-50 text-emerald-600",
     rose: "bg-rose-50 text-rose-600",
   }[tone];
-  return (
+  const card = (
     <Card className="flex items-center gap-4">
       <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${toneClasses}`}>
         {icon}
@@ -79,6 +81,14 @@ function StatCard({
         )}
       </div>
     </Card>
+  );
+
+  return href ? (
+    <Link href={href} className="block transition-transform hover:-translate-y-0.5">
+      {card}
+    </Link>
+  ) : (
+    card
   );
 }
 
@@ -153,6 +163,7 @@ export default function DashboardPage() {
             value={balance}
             tone="neutral"
             signed
+            href={`/ledgers/${ledger.id}?from=${todayISO()}&to=${todayISO()}`}
           />
         ))}
         {cashBank.length === 0 && (

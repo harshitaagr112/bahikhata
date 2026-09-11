@@ -184,15 +184,18 @@ type InsurancePolicy struct {
 }
 
 type Ledger struct {
-	ID           int64              `json:"id"`
-	Name         string             `json:"name"`
-	Type         LedgerType         `json:"type"`
-	CO           *string            `json:"c_o"`
-	Address      *string            `json:"address"`
-	IsSystem     bool               `json:"is_system"`
-	MergedIntoID *int64             `json:"merged_into_id"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ID             int64              `json:"id"`
+	Name           string             `json:"name"`
+	Type           LedgerType         `json:"type"`
+	CO             *string            `json:"c_o"`
+	Address        *string            `json:"address"`
+	IsSystem       bool               `json:"is_system"`
+	MergedIntoID   *int64             `json:"merged_into_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	TotalDebit     pgtype.Numeric     `json:"total_debit"`
+	TotalCredit    pgtype.Numeric     `json:"total_credit"`
+	ClosingBalance pgtype.Numeric     `json:"closing_balance"`
 }
 
 type LedgerMobileNumber struct {

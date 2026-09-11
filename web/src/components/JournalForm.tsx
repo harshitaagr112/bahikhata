@@ -113,23 +113,28 @@ export function JournalForm({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-3">
       <PageTitle icon={<ScrollText size={20} />}>
         {isEdit ? "Edit Journal" : "Journal"}
       </PageTitle>
       <ErrorBanner message={error} />
 
-      <Card>
-        <div className="flex flex-col gap-4">
+      <Card className="p-4 sm:p-5">
+        <div className="flex flex-col gap-3">
           <Field label="Date">
-            <TextInput type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <TextInput
+              className="sm:max-w-xs"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
           </Field>
 
           <div className="flex flex-col gap-2">
             {lines.map((line, i) => (
               <div
                 key={i}
-                className="flex flex-col gap-2 rounded-xl border border-[var(--border)] bg-neutral-50/60 p-3 sm:flex-row sm:items-end"
+                className="flex flex-col gap-2 rounded-xl border border-[var(--border)] bg-neutral-50/60 p-2 sm:flex-row sm:items-end"
               >
                 <div className="flex-1">
                   <LedgerPicker
@@ -195,7 +200,7 @@ export function JournalForm({
           </Field>
         </div>
 
-        <div className="mt-6 flex gap-3">
+        <div className="mt-4 flex gap-3">
           <Button onClick={() => (isEdit ? setConfirmOpen(true) : submit())} disabled={saving}>
             {saving ? "Saving..." : isEdit ? "Save Changes" : "Save Journal"}
           </Button>

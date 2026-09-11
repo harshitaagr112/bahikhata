@@ -155,43 +155,47 @@ export function SimpleTransactionForm({
   const Icon = TYPE_ICONS[type];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-3">
       <PageTitle icon={<Icon size={20} />}>
         {isEdit ? `Edit ${config.title}` : config.title}
       </PageTitle>
       <ErrorBanner message={error} />
 
-      <Card>
-        <div className="flex flex-col gap-4">
-          <Field label="Date">
-            <TextInput type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </Field>
-          <LedgerPicker
-            label={config.creditLabel}
-            value={creditLedger}
-            onChange={setCreditLedger}
-            excludeSystem
-          />
-          <LedgerPicker
-            label={config.debitLabel}
-            value={debitLedger}
-            onChange={setDebitLedger}
-            excludeSystem
-          />
-          <Field label="Amount">
-            <div className="relative">
-              <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] font-medium text-neutral-400">
-                ₹
-              </span>
-              <TextInput
-                inputMode="decimal"
-                placeholder="0.00"
-                className="pl-8 text-[17px] font-medium tabular"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-              />
-            </div>
-          </Field>
+      <Card className="p-4 sm:p-5">
+        <div className="flex flex-col gap-3">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]">
+            <Field label="Date">
+              <TextInput type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </Field>
+            <Field label="Amount">
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] font-medium text-neutral-400">
+                  ₹
+                </span>
+                <TextInput
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  className="pl-8 text-[17px] font-medium tabular"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                />
+              </div>
+            </Field>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <LedgerPicker
+              label={config.creditLabel}
+              value={creditLedger}
+              onChange={setCreditLedger}
+              excludeSystem
+            />
+            <LedgerPicker
+              label={config.debitLabel}
+              value={debitLedger}
+              onChange={setDebitLedger}
+              excludeSystem
+            />
+          </div>
           {config.mobileTarget && (
             <Field label="Mobile (optional)">
               <TextInput value={mobile} onChange={(e) => setMobile(e.target.value)} />
@@ -202,7 +206,7 @@ export function SimpleTransactionForm({
           </Field>
         </div>
 
-        <div className="mt-6 flex gap-3">
+        <div className="mt-4 flex gap-3">
           <Button
             onClick={() => (isEdit ? setConfirmOpen(true) : submit())}
             disabled={saving}

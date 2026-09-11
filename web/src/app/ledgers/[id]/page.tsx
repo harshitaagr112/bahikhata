@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { Download, GitMerge, Pencil, Phone, Trash2, Users } from "lucide-react";
 import {
   addLedgerMobileNumber,
@@ -22,16 +23,20 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function LedgerDetailPage() {
+function LedgerDetailContent() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const id = Number(params.id);
+  const defaultDate = todayISO();
+  const initialFrom = searchParams.get("from") || defaultDate;
+  const initialTo = searchParams.get("to") || initialFrom;
 
   const [ledger, setLedger] = useState<Ledger | null>(null);
   const [mobileNumbers, setMobileNumbers] = useState<LedgerMobileNumber[]>([]);
   const [statement, setStatement] = useState<StatementResponse | null>(null);
-  const [from, setFrom] = useState(todayISO());
-  const [to, setTo] = useState(todayISO());
+  const [from, setFrom] = useState(initialFrom);
+  const [to, setTo] = useState(initialTo);
   const [error, setError] = useState("");
 
   const [editing, setEditing] = useState(false);
@@ -376,5 +381,13 @@ export default function LedgerDetailPage() {
         onCancel={() => setConfirmDelete(false)}
       />
     </div>
+  );
+}
+
+export default function LedgerDetailPage() {
+  return (
+    <Suspense fallback={<p className="text-neutral-500">Loading...</p>}>
+      <LedgerDetailContent />
+    </Suspense>
   );
 }
