@@ -154,28 +154,32 @@ export default function DashboardPage() {
       </PageTitle>
       <ErrorBanner message={error} />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {cashBank.map(({ ledger, balance }) => (
-          <StatCard
-            key={ledger.id}
-            icon={ledger.type === "cash" ? <Wallet size={20} /> : <Banknote size={20} />}
-            label={ledger.name}
-            value={balance}
-            tone="neutral"
-            signed
-            href={`/ledgers/${ledger.id}?from=${todayISO()}&to=${todayISO()}`}
+      <Card>
+        <div className="mb-1 flex items-center gap-2 text-[15px] font-semibold text-neutral-900">
+          <Banknote size={17} className="text-neutral-400" />
+          Cash & Bank
+        </div>
+        {cashBank.length === 0 ? (
+          <EmptyState
+            icon={<Wallet size={22} />}
+            title="No Cash or Bank ledgers yet"
+            description="Create one from any transaction form using + Create New Ledger."
           />
-        ))}
-        {cashBank.length === 0 && (
-          <Card className="sm:col-span-2">
-            <EmptyState
-              icon={<Wallet size={22} />}
-              title="No Cash or Bank ledgers yet"
-              description="Create one from any transaction form using + Create New Ledger."
-            />
-          </Card>
+        ) : (
+          <div className="mt-1 flex flex-col divide-y divide-neutral-100">
+            {cashBank.map(({ ledger, balance }) => (
+              <Link
+                key={ledger.id}
+                href={`/ledgers/${ledger.id}?from=${todayISO()}&to=${todayISO()}`}
+                className="flex items-center justify-between gap-2 px-2 py-1.5 hover:bg-neutral-50"
+              >
+                <span className="text-sm font-medium text-neutral-900 truncate">{ledger.name}</span>
+                <MoneyDrCr value={balance} className="shrink-0 text-sm font-medium text-neutral-900" />
+              </Link>
+            ))}
+          </div>
         )}
-      </div>
+      </Card>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <StatCard
