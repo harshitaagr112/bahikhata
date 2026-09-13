@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Download, HandCoins } from "lucide-react";
 import { getInsuranceCommissionPayouts, listInsuranceCompanies } from "@/lib/api";
 import { KNOWN_INSURANCE_COMPANIES, type InsurancePolicy } from "@/lib/types";
+import { getDefaultDateRange } from "@/lib/dateRange";
 import {
   Badge,
   Button,
@@ -18,11 +19,6 @@ import {
   TextInput,
 } from "@/components/ui";
 
-function todayRange(): { from: string; to: string } {
-  const today = new Date().toISOString().slice(0, 10);
-  return { from: today, to: today };
-}
-
 function groupByCompany(rows: InsurancePolicy[]): [string, InsurancePolicy[]][] {
   const byCompany = new Map<string, InsurancePolicy[]>();
   for (const row of rows) {
@@ -34,7 +30,7 @@ function groupByCompany(rows: InsurancePolicy[]): [string, InsurancePolicy[]][] 
 }
 
 export default function InsuranceCommissionPayoutsPage() {
-  const defaultRange = todayRange();
+  const defaultRange = getDefaultDateRange();
   const [from, setFrom] = useState(defaultRange.from);
   const [to, setTo] = useState(defaultRange.to);
   const [company, setCompany] = useState("");

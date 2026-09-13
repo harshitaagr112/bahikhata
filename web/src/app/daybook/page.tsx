@@ -4,12 +4,9 @@ import { useEffect, useState } from "react";
 import { BookOpenText, Download } from "lucide-react";
 import { getDaybook } from "@/lib/api";
 import type { DaybookRow } from "@/lib/types";
+import { getDefaultDateRange } from "@/lib/dateRange";
 import { Button, Card, EmptyState, ErrorBanner, Field, Money, PageTitle, TextInput } from "@/components/ui";
 import { TransactionRow } from "@/components/TransactionRow";
-
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function groupByDate(rows: DaybookRow[]): [string, DaybookRow[]][] {
   const groups = new Map<string, DaybookRow[]>();
@@ -22,8 +19,9 @@ function groupByDate(rows: DaybookRow[]): [string, DaybookRow[]][] {
 }
 
 export default function DaybookPage() {
-  const [from, setFrom] = useState(todayISO());
-  const [to, setTo] = useState(todayISO());
+  const defaultRange = getDefaultDateRange();
+  const [from, setFrom] = useState(defaultRange.from);
+  const [to, setTo] = useState(defaultRange.to);
   const [rows, setRows] = useState<DaybookRow[]>([]);
   const [totals, setTotals] = useState({ total_debit: "0.00", total_credit: "0.00" });
   const [error, setError] = useState("");

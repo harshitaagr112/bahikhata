@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { createTransaction, updateTransaction } from "@/lib/api";
 import { setLastTransactionDate, setLastTransactionType } from "@/lib/lastTransactionType";
+import { getReturnTo } from "@/lib/returnTo";
 import type { CreateTransactionInput, Ledger } from "@/lib/types";
 import { Button, Card, ErrorBanner, Field, PageTitle, TextInput } from "./ui";
 import { LedgerPicker } from "./LedgerPicker";
@@ -144,7 +145,7 @@ export function SimpleTransactionForm({
       }
       setLastTransactionType(type);
       setLastTransactionDate(date);
-      router.push("/daybook");
+      router.push(getReturnTo());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save transaction");
     } finally {

@@ -15,22 +15,19 @@ import {
   updateLedger,
 } from "@/lib/api";
 import { LEDGER_TYPES, type Ledger, type LedgerMobileNumber, type LedgerType, type StatementResponse } from "@/lib/types";
+import { getDefaultDateRange } from "@/lib/dateRange";
 import { Badge, Button, Card, ErrorBanner, Field, Money, MoneyDrCr, PageTitle, Select, TextInput } from "@/components/ui";
 import { LedgerPicker } from "@/components/LedgerPicker";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function LedgerDetailContent() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = Number(params.id);
-  const defaultDate = todayISO();
-  const initialFrom = searchParams.get("from") || defaultDate;
-  const initialTo = searchParams.get("to") || initialFrom;
+  const defaultRange = getDefaultDateRange();
+  const initialFrom = searchParams.get("from") || defaultRange.from;
+  const initialTo = searchParams.get("to") || (searchParams.get("from") ? initialFrom : defaultRange.to);
 
   const [ledger, setLedger] = useState<Ledger | null>(null);
   const [mobileNumbers, setMobileNumbers] = useState<LedgerMobileNumber[]>([]);

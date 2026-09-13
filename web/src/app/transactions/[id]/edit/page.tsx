@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Trash2 } from "lucide-react";
 import { deleteTransaction, getLedger, getTransaction } from "@/lib/api";
 import type { Ledger, TransactionWithEntries } from "@/lib/types";
+import { getReturnTo } from "@/lib/returnTo";
 import { SimpleTransactionForm, type SimpleTransactionType } from "@/components/SimpleTransactionForm";
 import { JournalForm } from "@/components/JournalForm";
 import { Button, ErrorBanner } from "@/components/ui";
@@ -36,7 +37,7 @@ export default function EditTransactionPage() {
   async function handleDelete() {
     try {
       await deleteTransaction(id);
-      router.push("/daybook");
+      router.push(getReturnTo());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Delete failed");
       setConfirmDelete(false);

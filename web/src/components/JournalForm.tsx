@@ -5,6 +5,7 @@ import { useState } from "react";
 import { CheckCircle2, Plus, ScrollText, X, XCircle } from "lucide-react";
 import { createTransaction, updateTransaction } from "@/lib/api";
 import { setLastTransactionDate, setLastTransactionType } from "@/lib/lastTransactionType";
+import { getReturnTo } from "@/lib/returnTo";
 import type { Ledger } from "@/lib/types";
 import { Button, Card, ErrorBanner, Field, Money, PageTitle, TextInput } from "./ui";
 import { LedgerPicker } from "./LedgerPicker";
@@ -104,7 +105,7 @@ export function JournalForm({
       }
       setLastTransactionType("journal");
       setLastTransactionDate(date);
-      router.push("/daybook");
+      router.push(getReturnTo());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save journal");
     } finally {

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { logout } from "@/lib/api";
 import { getLastTransactionType } from "@/lib/lastTransactionType";
+import { DefaultDateRangeControl } from "./DefaultDateRangeControl";
 
 const NAV_LINKS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -63,6 +64,8 @@ export function Nav() {
         <Plus size={18} strokeWidth={2.5} />
         New Transaction
       </Link>
+
+      <DefaultDateRangeControl />
 
       <nav className="flex flex-col gap-1">
         {NAV_LINKS.map((link) => {
