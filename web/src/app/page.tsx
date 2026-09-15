@@ -170,7 +170,7 @@ export default function DashboardPage() {
             {cashBank.map(({ ledger, balance }) => (
               <Link
                 key={ledger.id}
-                href={`/ledgers/${ledger.id}?from=${todayISO()}&to=${todayISO()}`}
+                href={`/ledgers/${ledger.id}`}
                 className="flex items-center justify-between gap-2 px-2 py-1.5 hover:bg-neutral-50"
               >
                 <span className="text-sm font-medium text-neutral-900 truncate">{ledger.name}</span>

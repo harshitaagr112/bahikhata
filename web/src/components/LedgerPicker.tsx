@@ -27,7 +27,9 @@ export function LedgerPicker({
   const [open, setOpen] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [balance, setBalance] = useState<{ ledgerId: number; value: string | null } | null>(null);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -46,11 +48,17 @@ export function LedgerPicker({
             return a.name.localeCompare(b.name);
           });
           setResults(ordered);
+          setHighlightedIndex(0);
         })
         .catch(() => setResults([]));
     }, 250);
     return () => clearTimeout(handle);
   }, [query, open, excludeSystem]);
+
+  useEffect(() => {
+    if (!open) return;
+    itemRefs.current[highlightedIndex]?.scrollIntoView({ block: "nearest" });
+  }, [highlightedIndex, open]);
 
   useEffect(() => {
     if (!value) return;
@@ -80,6 +88,18 @@ export function LedgerPicker({
   }, []);
 
   const displayValue = query || (value && !open ? value.name : "");
+  const slotCount = results.length + 1; // +1 for the "Create New Ledger" slot
+
+  function selectResult(l: Ledger) {
+    onChange(l);
+    setQuery("");
+    setOpen(false);
+  }
+
+  function openCreate() {
+    setShowCreate(true);
+    setOpen(false);
+  }
 
   return (
     <div className="relative" ref={containerRef}>
@@ -101,6 +121,32 @@ export function LedgerPicker({
               setQuery(e.target.value);
               setOpen(true);
             }}
+            onKeyDown={(e) => {
+              if (!open) return;
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setHighlightedIndex((i) => Math.min(i + 1, slotCount - 1));
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setHighlightedIndex((i) => Math.max(i - 1, 0));
+              } else if (e.key === "Enter") {
+                if (highlightedIndex < results.length) {
+                  // Selecting a result: don't stopPropagation — let this
+                  // bubble to the enclosing form so Enter also advances
+                  // to the next field (see lib/formNav.ts).
+                  e.preventDefault();
+                  selectResult(results[highlightedIndex]);
+                } else {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  openCreate();
+                }
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                setOpen(false);
+              }
+            }}
           />
           {value && !query && (
             <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 whitespace-nowrap text-xs text-neutral-500">
@@ -116,54 +162,63 @@ export function LedgerPicker({
         </div>
       )}
       {open && (
-        <div className="animate-fade-in absolute z-20 mt-1.5 max-h-64 w-full overflow-auto rounded-xl border border-[var(--border)] bg-white p-1.5 shadow-lg">
-          {results.map((l) => (
-            <button
-              key={l.id}
-              type="button"
-              className="block w-full rounded-lg px-3 py-2.5 text-left hover:bg-[var(--accent-soft)]"
-              onClick={() => {
-                onChange(l);
-                setQuery("");
-                setOpen(false);
-              }}
-            >
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-neutral-900">{l.name}</span>
-                <Badge>{l.type}</Badge>
-              </div>
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-neutral-500">
-                {l.c_o && (
-                  <span className="flex items-center gap-1">
-                    <UsersRound size={11} className="text-neutral-400" />
-                    C/O {l.c_o}
-                  </span>
-                )}
-                {l.address && (
-                  <span className="flex items-center gap-1">
-                    <MapPin size={11} className="text-neutral-400" />
-                    {l.address}
-                  </span>
-                )}
-                {l.mobile_numbers && (
-                  <span className="flex items-center gap-1">
-                    <Phone size={11} className="text-neutral-400" />
-                    {l.mobile_numbers}
-                  </span>
-                )}
-              </div>
-            </button>
-          ))}
-          {results.length === 0 && (
-            <div className="px-3 py-2 text-sm text-neutral-500">No ledger found.</div>
-          )}
+        <div className="animate-fade-in absolute z-20 mt-1.5 w-full overflow-hidden rounded-xl border border-[var(--border)] bg-white shadow-lg">
+          <div className="max-h-56 overflow-auto p-1.5">
+            {results.map((l, i) => (
+              <button
+                key={l.id}
+                ref={(el) => {
+                  itemRefs.current[i] = el;
+                }}
+                type="button"
+                className={`block w-full rounded-lg px-3 py-2.5 text-left hover:bg-[var(--accent-soft)] ${
+                  highlightedIndex === i ? "bg-[var(--accent-soft)]" : ""
+                }`}
+                onMouseEnter={() => setHighlightedIndex(i)}
+                onClick={() => selectResult(l)}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-neutral-900">{l.name}</span>
+                  <Badge>{l.type}</Badge>
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-neutral-500">
+                  {l.c_o && (
+                    <span className="flex items-center gap-1">
+                      <UsersRound size={11} className="text-neutral-400" />
+                      C/O {l.c_o}
+                    </span>
+                  )}
+                  {l.address && (
+                    <span className="flex items-center gap-1">
+                      <MapPin size={11} className="text-neutral-400" />
+                      {l.address}
+                    </span>
+                  )}
+                  {l.mobile_numbers && (
+                    <span className="flex items-center gap-1">
+                      <Phone size={11} className="text-neutral-400" />
+                      {l.mobile_numbers}
+                    </span>
+                  )}
+                </div>
+              </button>
+            ))}
+            {results.length === 0 && (
+              <div className="px-3 py-2 text-sm text-neutral-500">No ledger found.</div>
+            )}
+          </div>
+          {/* Pinned footer — always visible without scrolling the results
+           * above, so "Create New Ledger" never scrolls out of reach. */}
           <button
-            type="button"
-            className="mt-1 flex w-full items-center gap-2 rounded-lg border-t border-neutral-100 px-3 py-2.5 text-left text-sm font-medium text-[var(--accent)] hover:bg-[var(--accent-soft)]"
-            onClick={() => {
-              setShowCreate(true);
-              setOpen(false);
+            ref={(el) => {
+              itemRefs.current[results.length] = el;
             }}
+            type="button"
+            className={`flex w-full items-center gap-2 border-t border-neutral-100 px-3 py-2.5 text-left text-sm font-medium text-[var(--accent)] hover:bg-[var(--accent-soft)] ${
+              highlightedIndex === results.length ? "bg-[var(--accent-soft)]" : ""
+            }`}
+            onMouseEnter={() => setHighlightedIndex(results.length)}
+            onClick={openCreate}
           >
             <UserPlus size={16} />
             Create New Ledger
@@ -232,7 +287,18 @@ export function CreateLedgerModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/30 p-4 backdrop-blur-[2px]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/30 p-4 backdrop-blur-[2px]"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          onClose();
+        } else if (e.key === "Enter" && (e.target as HTMLElement).tagName !== "BUTTON" && !saving) {
+          e.stopPropagation();
+          handleCreate();
+        }
+      }}
+    >
       <div className="animate-fade-in w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-[var(--accent)]">

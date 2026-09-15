@@ -12,6 +12,7 @@ import {
 import { createTransaction, updateTransaction } from "@/lib/api";
 import { setLastTransactionDate, setLastTransactionType } from "@/lib/lastTransactionType";
 import { getReturnTo } from "@/lib/returnTo";
+import { handleEnterToAdvance } from "@/lib/formNav";
 import type { CreateTransactionInput, Ledger } from "@/lib/types";
 import { Button, Card, ErrorBanner, Field, PageTitle, TextInput } from "./ui";
 import { LedgerPicker } from "./LedgerPicker";
@@ -163,7 +164,10 @@ export function SimpleTransactionForm({
       <ErrorBanner message={error} />
 
       <Card className="p-4 sm:p-5">
-        <div className="flex flex-col gap-3">
+        <div
+          className="flex flex-col gap-3"
+          onKeyDown={(e) => handleEnterToAdvance(e, () => (isEdit ? setConfirmOpen(true) : submit()))}
+        >
           <div className="grid gap-3 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)]">
             <Field label="Date">
               <TextInput type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -174,6 +178,7 @@ export function SimpleTransactionForm({
                   ₹
                 </span>
                 <TextInput
+                  autoFocus
                   inputMode="decimal"
                   placeholder="0.00"
                   className="pl-8 text-[17px] font-medium tabular"

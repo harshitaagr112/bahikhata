@@ -3,29 +3,11 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  BookOpenCheck,
-  BookOpenText,
-  LayoutDashboard,
-  ListChecks,
-  LogOut,
-  Menu,
-  Plus,
-  ShieldCheck,
-  Users,
-  X,
-} from "lucide-react";
+import { BookOpenCheck, LogOut, Menu, Plus, X } from "lucide-react";
 import { logout } from "@/lib/api";
 import { getLastTransactionType } from "@/lib/lastTransactionType";
+import { NAV_LINKS } from "@/lib/navLinks";
 import { DefaultDateRangeControl } from "./DefaultDateRangeControl";
-
-const NAV_LINKS = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/daybook", label: "Daybook", icon: BookOpenText },
-  { href: "/ledgers", label: "Ledgers", icon: Users },
-  { href: "/outstanding", label: "Outstanding", icon: ListChecks },
-  { href: "/insurance", label: "Insurance", icon: ShieldCheck },
-];
 
 export function Nav() {
   const pathname = usePathname();
@@ -98,6 +80,10 @@ export function Nav() {
           Log Out
         </button>
         <div className="px-3 text-xs text-neutral-400">Family Insurance Agency</div>
+        <div className="px-3 text-xs text-neutral-400">
+          Press <kbd className="rounded border border-neutral-300 px-1 font-sans">Alt + /</kbd> for
+          keyboard shortcuts
+        </div>
       </div>
     </>
   );
@@ -131,7 +117,15 @@ export function Nav() {
 
       {/* Mobile drawer */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
+        <div
+          className="fixed inset-0 z-50 md:hidden"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.stopPropagation();
+              setMobileOpen(false);
+            }
+          }}
+        >
           <div
             className="absolute inset-0 bg-neutral-900/30 backdrop-blur-[2px]"
             onClick={() => setMobileOpen(false)}
@@ -139,6 +133,7 @@ export function Nav() {
           <aside className="animate-fade-in relative flex h-full w-72 max-w-[85%] flex-col bg-[var(--surface)] px-4 py-6 shadow-xl">
             <button
               type="button"
+              autoFocus
               onClick={() => setMobileOpen(false)}
               aria-label="Close menu"
               className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100"

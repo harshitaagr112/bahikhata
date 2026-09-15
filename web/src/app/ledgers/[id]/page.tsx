@@ -315,7 +315,16 @@ function LedgerDetailContent() {
       </Card>
 
       {showMerge && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-neutral-900/30 p-4 backdrop-blur-[2px]">
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-neutral-900/30 p-4 backdrop-blur-[2px]"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.stopPropagation();
+              setShowMerge(false);
+              setMergeTarget(null);
+            }
+          }}
+        >
           <div className="animate-fade-in w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
@@ -335,6 +344,7 @@ function LedgerDetailContent() {
             <div className="mt-6 flex justify-end gap-2.5 border-t border-neutral-100 pt-4">
               <Button
                 variant="secondary"
+                autoFocus
                 onClick={() => {
                   setShowMerge(false);
                   setMergeTarget(null);

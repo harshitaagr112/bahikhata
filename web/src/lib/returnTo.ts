@@ -27,3 +27,21 @@ export function getReturnTo(): string {
   if (typeof window === "undefined") return "/daybook";
   return window.sessionStorage.getItem(KEY) || "/daybook";
 }
+
+const NAV_DEPTH_KEY = "khata:navDepth";
+
+/** Bumped by RouteTracker on every route change. Used by the global
+ * Escape-to-go-back shortcut to tell "there's real in-app history to go
+ * back to" apart from "this is the first page this tab has shown" — in
+ * the latter case `router.back()` could navigate the tab out of the app
+ * entirely, which we never want a keyboard shortcut to do. */
+export function bumpNavDepth(): void {
+  if (typeof window === "undefined") return;
+  const current = Number(window.sessionStorage.getItem(NAV_DEPTH_KEY) || "0");
+  window.sessionStorage.setItem(NAV_DEPTH_KEY, String(current + 1));
+}
+
+export function canGoBack(): boolean {
+  if (typeof window === "undefined") return false;
+  return Number(window.sessionStorage.getItem(NAV_DEPTH_KEY) || "0") >= 2;
+}

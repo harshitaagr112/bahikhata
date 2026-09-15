@@ -24,7 +24,18 @@ export function ConfirmDialog({
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/30 p-4 backdrop-blur-[2px]">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/30 p-4 backdrop-blur-[2px]"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          onCancel();
+        } else if (e.key === "Enter" && (e.target as HTMLElement).tagName !== "BUTTON") {
+          e.stopPropagation();
+          onConfirm();
+        }
+      }}
+    >
       <div className="animate-fade-in w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
         <span
           className={`flex h-11 w-11 items-center justify-center rounded-full ${
@@ -36,10 +47,13 @@ export function ConfirmDialog({
         <h2 className="mt-3 text-[17px] font-semibold text-neutral-900">{title}</h2>
         <p className="mt-1.5 text-[14px] text-neutral-500">{message}</p>
         <div className="mt-6 flex justify-end gap-2.5">
-          <Button variant="secondary" onClick={onCancel}>
+          {/* Danger dialogs autofocus Cancel so a stray Enter can't confirm
+           * a destructive action; non-danger dialogs autofocus Confirm so
+           * "keep pressing Enter" carries a user through a normal save. */}
+          <Button variant="secondary" autoFocus={danger} onClick={onCancel}>
             {cancelLabel}
           </Button>
-          <Button variant={danger ? "danger" : "primary"} onClick={onConfirm}>
+          <Button variant={danger ? "danger" : "primary"} autoFocus={!danger} onClick={onConfirm}>
             {confirmLabel}
           </Button>
         </div>

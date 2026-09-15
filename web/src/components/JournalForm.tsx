@@ -6,6 +6,7 @@ import { CheckCircle2, Plus, ScrollText, X, XCircle } from "lucide-react";
 import { createTransaction, updateTransaction } from "@/lib/api";
 import { setLastTransactionDate, setLastTransactionType } from "@/lib/lastTransactionType";
 import { getReturnTo } from "@/lib/returnTo";
+import { handleEnterToAdvance } from "@/lib/formNav";
 import type { Ledger } from "@/lib/types";
 import { Button, Card, ErrorBanner, Field, Money, PageTitle, TextInput } from "./ui";
 import { LedgerPicker } from "./LedgerPicker";
@@ -121,7 +122,10 @@ export function JournalForm({
       <ErrorBanner message={error} />
 
       <Card className="p-4 sm:p-5">
-        <div className="flex flex-col gap-3">
+        <div
+          className="flex flex-col gap-3"
+          onKeyDown={(e) => handleEnterToAdvance(e, () => (isEdit ? setConfirmOpen(true) : submit()))}
+        >
           <Field label="Date">
             <TextInput
               className="sm:max-w-xs"
