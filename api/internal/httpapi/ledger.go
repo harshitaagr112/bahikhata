@@ -3,6 +3,7 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -179,9 +180,16 @@ func ledgerTypesParam(r *http.Request) []string {
 func (s *Server) searchLedgers(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 
+	// Default cap suits the type-ahead picker; callers that need a complete
+	// list (e.g. the dashboard's cash/bank/limit balances) can raise it.
+	limit := int32(50)
+	if v, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && v > 0 {
+		limit = int32(min(v, 1000))
+	}
+
 	rows, err := s.queries.SearchLedgers(r.Context(), db.SearchLedgersParams{
 		Column1: &q,
-		Limit:   50,
+		Limit:   limit,
 		Offset:  0,
 		Types:   ledgerTypesParam(r),
 	})

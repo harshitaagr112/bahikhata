@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { CheckCircle2, Plus, ScrollText, X, XCircle } from "lucide-react";
 import { createTransaction, updateTransaction } from "@/lib/api";
 import { setLastTransactionDate, setLastTransactionType } from "@/lib/lastTransactionType";
@@ -49,6 +49,10 @@ export function JournalForm({
   const [lines, setLines] = useState<JournalLine[]>(initial?.lines ?? [emptyLine(), emptyLine()]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  // Synchronous guard against double-submits (e.g. Enter pressed twice on
+  // the last field): `saving` state lags a render behind and the Enter
+  // path doesn't go through the disabled button, so it can't do this alone.
+  const submittingRef = useRef(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const totalDebit = lines.reduce((sum, l) => sum + (parseFloat(l.debit) || 0), 0);
@@ -81,11 +85,13 @@ export function JournalForm({
   }
 
   async function submit() {
+    if (submittingRef.current) return;
     const validationError = validate();
     if (validationError) {
       setError(validationError);
       return;
     }
+    submittingRef.current = true;
     setSaving(true);
     setError("");
     try {
@@ -109,7 +115,9 @@ export function JournalForm({
       router.push(getReturnTo());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save journal");
-    } finally {
+      // Stay locked after success (we're navigating away); unlock on failure
+      // so the user can fix the problem and retry.
+      submittingRef.current = false;
       setSaving(false);
     }
   }

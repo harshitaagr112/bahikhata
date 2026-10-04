@@ -36,10 +36,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 // -- Ledgers -----------------------------------------------------------
 
-export function searchLedgers(q: string, types?: LedgerType[]): Promise<Ledger[]> {
+export function searchLedgers(
+  q: string,
+  types?: LedgerType[],
+  limit?: number
+): Promise<Ledger[]> {
   const params = new URLSearchParams();
   if (q) params.set("q", q);
   if (types && types.length > 0) params.set("type", types.join(","));
+  if (limit) params.set("limit", String(limit));
   return request<Ledger[]>(`/api/ledgers?${params.toString()}`);
 }
 

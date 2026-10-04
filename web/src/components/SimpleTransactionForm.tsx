@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -112,6 +112,10 @@ export function SimpleTransactionForm({
   const [narration, setNarration] = useState(initial?.narration ?? "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  // Synchronous guard against double-submits (e.g. Enter pressed twice on
+  // the last field): `saving` state lags a render behind and the Enter
+  // path doesn't go through the disabled button, so it can't do this alone.
+  const submittingRef = useRef(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   function validate(): string | null {
@@ -122,11 +126,13 @@ export function SimpleTransactionForm({
   }
 
   async function submit() {
+    if (submittingRef.current) return;
     const validationError = validate();
     if (validationError) {
       setError(validationError);
       return;
     }
+    submittingRef.current = true;
     setSaving(true);
     setError("");
     try {
@@ -149,7 +155,9 @@ export function SimpleTransactionForm({
       router.push(getReturnTo());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save transaction");
-    } finally {
+      // Stay locked after success (we're navigating away); unlock on failure
+      // so the user can fix the problem and retry.
+      submittingRef.current = false;
       setSaving(false);
     }
   }

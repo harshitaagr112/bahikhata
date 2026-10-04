@@ -19,7 +19,7 @@ import {
   getOutstanding,
   searchLedgers,
 } from "@/lib/api";
-import type { DaybookRow, InsurancePolicy, Ledger } from "@/lib/types";
+import type { DaybookRow, InsurancePolicy, Ledger, LedgerType } from "@/lib/types";
 import { Badge, Card, EmptyState, ErrorBanner, Money, MoneyDrCr, PageTitle } from "@/components/ui";
 import { TransactionRow } from "@/components/TransactionRow";
 
@@ -27,6 +27,12 @@ interface CashBankBalance {
   ledger: Ledger;
   balance: string;
 }
+
+const BALANCE_GROUPS: { type: LedgerType; label: string }[] = [
+  { type: "cash", label: "Cash" },
+  { type: "bank", label: "Bank" },
+  { type: "limit", label: "Limits" },
+];
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -104,8 +110,10 @@ export default function DashboardPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [ledgers, outstanding, daybook, dueRenewals] = await Promise.all([
-          searchLedgers(""),
+        const [cashBankLedgers, outstanding, daybook, dueRenewals] = await Promise.all([
+          // Filter server-side with a high cap: an unfiltered search is
+          // capped at 50 alphabetically, which hid banks behind customers.
+          searchLedgers("", BALANCE_GROUPS.map((g) => g.type), 1000),
           getOutstanding(),
           getDaybook(todayISO(), todayISO()),
           // Overdue policies have no lower bound, so start well in the past
@@ -118,9 +126,6 @@ export default function DashboardPage() {
             .sort((a, b) => (a.expiry_date < b.expiry_date ? -1 : 1))
         );
 
-        const cashBankLedgers = ledgers.filter(
-          (l) => l.type === "cash" || l.type === "bank"
-        );
         const balances = await Promise.all(
           cashBankLedgers.map(async (ledger) => ({
             ledger,
@@ -157,26 +162,39 @@ export default function DashboardPage() {
       <Card>
         <div className="mb-1 flex items-center gap-2 text-[15px] font-semibold text-neutral-900">
           <Banknote size={17} className="text-neutral-400" />
-          Cash & Bank
+          Cash, Bank & Limits
         </div>
         {cashBank.length === 0 ? (
           <EmptyState
             icon={<Wallet size={22} />}
-            title="No Cash or Bank ledgers yet"
+            title="No Cash, Bank or Limit ledgers yet"
             description="Create one from any transaction form using + Create New Ledger."
           />
         ) : (
-          <div className="mt-1 flex flex-col divide-y divide-neutral-100">
-            {cashBank.map(({ ledger, balance }) => (
-              <Link
-                key={ledger.id}
-                href={`/ledgers/${ledger.id}`}
-                className="flex items-center justify-between gap-2 px-2 py-1.5 hover:bg-neutral-50"
-              >
-                <span className="text-sm font-medium text-neutral-900 truncate">{ledger.name}</span>
-                <MoneyDrCr value={balance} className="shrink-0 text-sm font-medium text-neutral-900" />
-              </Link>
-            ))}
+          <div className="mt-1 flex flex-col gap-2">
+            {BALANCE_GROUPS.map(({ type, label }) => {
+              const rows = cashBank.filter((b) => b.ledger.type === type);
+              if (rows.length === 0) return null;
+              return (
+                <div key={type}>
+                  <div className="px-2 pt-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                    {label}
+                  </div>
+                  <div className="flex flex-col divide-y divide-neutral-100">
+                    {rows.map(({ ledger, balance }) => (
+                      <Link
+                        key={ledger.id}
+                        href={`/ledgers/${ledger.id}`}
+                        className="flex items-center justify-between gap-2 px-2 py-1.5 hover:bg-neutral-50"
+                      >
+                        <span className="text-sm font-medium text-neutral-900 truncate">{ledger.name}</span>
+                        <MoneyDrCr value={balance} className="shrink-0 text-sm font-medium text-neutral-900" />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </Card>
